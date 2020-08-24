@@ -1,5 +1,7 @@
 package com.louyj.tools.dbsync.sync
 
+import java.util.concurrent.TimeUnit
+
 import com.louyj.tools.dbsync.DatasourcePools
 import com.louyj.tools.dbsync.config.{DatabaseConfig, DbContext, SyncConfig}
 import com.louyj.tools.dbsync.dbopt.DbOperation
@@ -15,25 +17,25 @@ import scala.collection.mutable.ListBuffer
  * @author Louyj<br/>
  */
 
-class DataSender(dbContext: DbContext) {
+class DataSyncer(dbContext: DbContext) {
 
   for (partition <- 0 until dbContext.queueManager.partition) {
-    val sendWorker = new SendWorker(dbContext, partition, dbContext.queueManager, dbContext.dsPools, dbContext.dbConfig, dbContext.syncConfigs)
+    val sendWorker = new SyncWorker(dbContext, partition, dbContext.queueManager, dbContext.dsPools, dbContext.dbConfig, dbContext.syncConfigs)
     sendWorker.start()
   }
 
 }
 
-class SendWorker(dbContext: DbContext, partition: Int,
+class SyncWorker(dbContext: DbContext, partition: Int,
                  queueManager: QueueManager, dsPools: DatasourcePools,
                  dbConfig: DatabaseConfig, syncConfigs: Map[String, SyncConfig]) extends Thread {
 
   val logger = LoggerFactory.getLogger(getClass)
 
-  setName(s"send-${dbConfig.name}-$partition")
+  setName(s"sync-${dbConfig.name}-$partition")
 
   override def run(): Unit = {
-    logger.info("Start data send worker for database {} partition {}", dbConfig.name, partition)
+    logger.info("Start data sync worker for database {} partition {}", dbConfig.name, partition)
     while (!isInterrupted) {
       try {
         val batchData = queueManager.take(partition)
@@ -62,7 +64,10 @@ class SendWorker(dbContext: DbContext, partition: Int,
         }
       } catch {
         case e: InterruptedException => throw e
-        case e: Exception => logger.error("", e)
+        case e: Exception => {
+          logger.error("Sync failed", e)
+          TimeUnit.SECONDS.sleep(1)
+        }
       }
     }
   }

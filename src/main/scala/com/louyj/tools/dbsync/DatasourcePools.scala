@@ -20,6 +20,7 @@ class DatasourcePools(databaseConfigs: List[DatabaseConfig]) {
     config.setPassword(item.password)
     config.setDriverClassName(item.driver)
     config.setMaximumPoolSize(item.maxPoolSize)
+    config.setPoolName(item.name)
     val ds = new HikariDataSource(config)
     val jdbcTemplate = new JdbcTemplate(ds)
     item.name -> jdbcTemplate

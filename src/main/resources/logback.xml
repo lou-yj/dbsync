@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="60 seconds">
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>dbsync-%d{yyyyMMdd}.log</fileNamePattern>
+            <maxHistory>5</maxHistory>
+            <totalSizeCap>100MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d %-5p %C{0}[%thread] -- %m%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d %-5p %C{0}[%thread] -- %m%n
+            </pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <!--<appender-ref ref="FILE"/>-->
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>
+

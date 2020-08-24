@@ -15,16 +15,17 @@ import org.springframework.jdbc.core.JdbcTemplate
 case class DatabaseConfig(name: String, sysSchema: String, `type`: String,
                           driver: String, url: String,
                           user: String, password: String,
-                          maxPoolSize: Int = 15)
+                          var maxPoolSize: Int = 15)
 
 
 case class SyncConfig(sourceDb: String, targetDb: String,
                       sourceSchema: String, sourceTable: String,
                       sourceKeys: String,
-                      targetSchema: String, targetTable: String,
-                      insertCondition: String, updateCondition: String, deleteCondition: String)
+                      var targetSchema: String, var targetTable: String,
+                      var insertCondition: String, var updateCondition: String, var deleteCondition: String)
 
-case class SysConfig(batch: Int, partition: Int = 10)
+case class SysConfig(var batch: Int = 10000, var partition: Int = 10,
+                     var maxPollWait: Long = 60000)
 
 case class DbContext(queueManager: QueueManager,
                      dbConfig: DatabaseConfig,

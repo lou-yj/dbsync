@@ -2,6 +2,7 @@ package com.louyj.tools.dbsync.sync
 
 import java.nio.charset.StandardCharsets
 import java.sql.Timestamp
+import java.util.concurrent.TimeUnit
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility
 import com.fasterxml.jackson.annotation.PropertyAccessor
@@ -42,21 +43,38 @@ class DataPoller(dbContext: DbContext) extends Thread {
     val dbConfig = dbContext.dbConfig
     val jdbcTemplate = dbContext.jdbcTemplate
     val dbOpt = dbContext.dbOpts(dbConfig.`type`)
-    logger.info("Start data pooler for databasse {}", dbConfig.name)
+    val maxPollWait = dbContext.sysConfig.maxPollWait
+    val batchSize = dbContext.sysConfig.batch
+    logger.info("Start data poller for databasse {}", dbConfig.name)
     while (!isInterrupted) {
-      val models = dbOpt.pollBatch(jdbcTemplate, dbConfig, dbContext.sysConfig.batch, offsetStatus)
-      val dataTable: HashBasedTable[String, Int, ListBuffer[SyncData]] = HashBasedTable.create()
-      models.foreach(pushModel(_, dataTable))
-      dataTable.cellSet().forEach(c => {
-        val batch = BatchData(c.getRowKey, c.getColumnKey, c.getValue)
-        dbContext.queueManager.put(c.getColumnKey, batch)
-      })
-      offsetStatus = models.last.id
-      startTime = models.head.createTime
-      endTime = models.last.createTime
-      logger.info("Poll {} data between {} and {}", models.size,
-        new DateTime(startTime.getTime).toString("yyyy-MM-dd HH:mm:ss"),
-        new DateTime(endTime.getTime).toString("yyyy-MM-dd HH:mm:ss"))
+      try {
+        val models = dbOpt.pollBatch(jdbcTemplate, dbConfig, batchSize, offsetStatus)
+        if (models.nonEmpty) {
+          val dataTable: HashBasedTable[String, Int, ListBuffer[SyncData]] = HashBasedTable.create()
+          models.foreach(pushModel(_, dataTable))
+          dataTable.cellSet().forEach(c => {
+            val batch = BatchData(c.getRowKey, c.getColumnKey, c.getValue)
+            dbContext.queueManager.put(c.getColumnKey, batch)
+          })
+          offsetStatus = models.last.id
+          startTime = models.head.createTime
+          endTime = models.last.createTime
+          val startTimeStr = new DateTime(startTime.getTime).toString("yyyy-MM-dd HH:mm:ss")
+          val endTimeStr = new DateTime(endTime.getTime).toString("yyyy-MM-dd HH:mm:ss")
+          logger.info(s"Poll ${models.size} data between $startTimeStr and $endTimeStr, current offset $offsetStatus")
+        }
+        val percent = (batchSize - models.size) * 1.0 / batchSize
+        val waitTime = (percent * maxPollWait).longValue()
+        if (waitTime > 0) {
+          logger.info(s"Sleep $waitTime ms")
+          TimeUnit.MILLISECONDS.sleep(waitTime)
+        }
+      } catch {
+        case e: InterruptedException => throw e
+        case e: Exception =>
+          logger.error("Poll failed", e)
+          TimeUnit.SECONDS.sleep(1)
+      }
     }
   }
 

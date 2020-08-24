@@ -4,7 +4,7 @@ import java.io.FileInputStream
 
 import com.louyj.tools.dbsync.config.{ConfigParser, DbContext}
 import com.louyj.tools.dbsync.dbopt.DbOperationRegister
-import com.louyj.tools.dbsync.sync.{DataPoller, DataSender, QueueManager}
+import com.louyj.tools.dbsync.sync.{DataPoller, DataSyncer, QueueManager}
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ListBuffer
@@ -31,15 +31,15 @@ object DbsyncLanucher {
 
     val threads = new ListBuffer[Thread]
     configParser.databaseConfig.foreach(dbConfig => {
-      logger.info("Setup sync worker for database {}", dbConfig.name)
+      logger.info("Setup sync workers for database {}", dbConfig.name)
       val queueManager = new QueueManager(sysConfig.partition)
       val jdbcTemplate = datasourcePools.jdbcTemplate(dbConfig.name)
       val dbContext = DbContext(queueManager, dbConfig, syncConfigs, jdbcTemplate, datasourcePools, dbOpts, sysConfig)
       val pollThread = new DataPoller(dbContext)
-      new DataSender(dbContext)
+      new DataSyncer(dbContext)
       threads += pollThread
     })
-    logger.info("Startup")
+    logger.info("Application lanuched")
     threads.foreach(_.join())
 
   }

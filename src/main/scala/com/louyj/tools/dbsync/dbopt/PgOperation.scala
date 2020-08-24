@@ -28,7 +28,7 @@ class PgOperation extends DbOperation {
     val sql =
       s"""
       select * from ${dbConfig.sysSchema}.sync_data t1
-      left join ${dbConfig.sysSchema}.sync_data_status t1
+      left join ${dbConfig.sysSchema}.sync_data_status t2
       on t1.id=t2."dataId"
       where t2.status is null and t1.id > $offset
       order by t1.id
