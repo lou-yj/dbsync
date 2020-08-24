@@ -18,9 +18,9 @@ import scala.collection.mutable.ListBuffer
  * @author Louyj<br/>
  */
 
-object DbsyncLanucher {
+object DbSyncLanucher {
 
-  val logger = LoggerFactory.getLogger(DbsyncLanucher.getClass)
+  val logger = LoggerFactory.getLogger(DbSyncLanucher.getClass)
 
   def main(args: Array[String]): Unit = {
     val stream = if (args.length > 0) new FileInputStream(args(0))
