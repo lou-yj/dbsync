@@ -2,6 +2,7 @@ package com.louyj.tools.dbsync.sync
 
 import java.util.concurrent.TimeUnit
 
+import com.google.gson.Gson
 import com.louyj.tools.dbsync.DatasourcePools
 import com.louyj.tools.dbsync.config.{DatabaseConfig, DbContext}
 import com.louyj.tools.dbsync.dbopt.DbOperation
@@ -41,6 +42,7 @@ class SyncWorker(dbContext: DbContext, partition: Int,
       try {
         val batchData = queueManager.take(partition)
         val jdbcTemplate = dsPools.jdbcTemplate(batchData.targetDb)
+        val targetJdbcTemplate = dsPools.jdbcTemplate(dbConfig.name)
         var targetDb = batchData.targetDb
         var preSchema: String = null
         var preTable: String = null
@@ -52,8 +54,9 @@ class SyncWorker(dbContext: DbContext, partition: Int,
           val sqlTuple = toSql(dbOpt, batchData.targetDb, syncData)
           if (preSql == sqlTuple._1) {
             preArgs += sqlTuple._2
+            preIds += syncData.id
           } else {
-            exec(dbOpt, jdbcTemplate, targetDb, preSchema, preTable, preSql, preArgs.toList, preIds.toList)
+            exec(dbOpt, jdbcTemplate, targetJdbcTemplate, targetDb, preSchema, preTable, preSql, preArgs.toList, preIds.toList)
             preSchema = syncData.schema
             preTable = syncData.table
             preSql = sqlTuple._1
@@ -64,7 +67,7 @@ class SyncWorker(dbContext: DbContext, partition: Int,
           }
         })
         if (preArgs.nonEmpty) {
-          exec(dbOpt, jdbcTemplate, targetDb, preSchema, preTable, preSql, preArgs.toList, preIds.toList)
+          exec(dbOpt, jdbcTemplate, targetJdbcTemplate, targetDb, preSchema, preTable, preSql, preArgs.toList, preIds.toList)
         }
       } catch {
         case e: InterruptedException => throw e
@@ -117,7 +120,7 @@ class SyncWorker(dbContext: DbContext, partition: Int,
     }
   }
 
-  def exec(dbOpts: DbOperation, jdbcTemplate: JdbcTemplate, targetDb: String, schema: String,
+  def exec(dbOpts: DbOperation, jdbcTemplate: JdbcTemplate, targetJdbcTemplate: JdbcTemplate, targetDb: String, schema: String,
            table: String, sql: String, args: List[Array[AnyRef]],
            ids: List[Long]): Unit = {
     if (sql == null) {
@@ -127,17 +130,17 @@ class SyncWorker(dbContext: DbContext, partition: Int,
     try {
       jdbcTemplate.batchUpdate(sql, args.asJava)
       val ackSql = dbOpts.batchAckSql(dbConfig)
-      jdbcTemplate.batchUpdate(ackSql, ackArgs(ids, "OK", "").asJava)
+      targetJdbcTemplate.batchUpdate(ackSql, ackArgs(ids, "OK", "").asJava)
       logger.info(s"Sync ${args.size} data for table $schema.$table[$targetDb]")
     } catch {
       case e: InterruptedException => throw e
       case e: Exception =>
         val reason = s"${e.getClass.getSimpleName}-${e.getMessage}"
-        fallbackExec(dbOpts, jdbcTemplate, table, args, ids, reason)
+        fallbackExec(dbOpts, jdbcTemplate, targetJdbcTemplate, table, args, ids, reason)
     }
   }
 
-  def fallbackExec(dbOpts: DbOperation, jdbcTemplate: JdbcTemplate,
+  def fallbackExec(dbOpts: DbOperation, jdbcTemplate: JdbcTemplate, targetJdbcTemplate: JdbcTemplate,
                    preTable: String, args: List[Array[AnyRef]],
                    ids: List[Long], reason: String): Unit = {
     logger.warn(s"Failed sync ${args.size} data for table $preTable, reason $reason")
