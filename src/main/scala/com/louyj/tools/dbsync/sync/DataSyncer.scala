@@ -35,22 +35,26 @@ class SyncWorker(dbContext: DbContext, partition: Int,
   setName(s"sync-${dbConfig.name}-$partition")
 
   override def run(): Unit = {
-    logger.info("Start sync worker for database {} partition {}", dbConfig.name, partition)
+    logger.info("Start sync worker for {}[{}]", dbConfig.name, partition)
+    val dbConfigs = dbContext.dbConfigs
     while (!isInterrupted) {
       try {
         val batchData = queueManager.take(partition)
         val jdbcTemplate = dsPools.jdbcTemplate(batchData.targetDb)
+        var targetDb = batchData.targetDb
+        var preSchema: String = null
         var preTable: String = null
         var preSql: String = null
         val preArgs = new ListBuffer[Array[AnyRef]]
         val preIds = new ListBuffer[Long]
-        val dbOpt = dbContext.dbOpts(batchData.targetDb)
+        val dbOpt = dbContext.dbOpts(dbConfigs(batchData.targetDb).`type`)
         batchData.items.foreach(syncData => {
           val sqlTuple = toSql(dbOpt, batchData.targetDb, syncData)
           if (preSql == sqlTuple._1) {
             preArgs += sqlTuple._2
           } else {
-            exec(dbOpt, jdbcTemplate, preTable, preSql, preArgs.toList, preIds.toList)
+            exec(dbOpt, jdbcTemplate, targetDb, preSchema, preTable, preSql, preArgs.toList, preIds.toList)
+            preSchema = syncData.schema
             preTable = syncData.table
             preSql = sqlTuple._1
             preArgs.clear()
@@ -60,7 +64,7 @@ class SyncWorker(dbContext: DbContext, partition: Int,
           }
         })
         if (preArgs.nonEmpty) {
-          exec(dbOpt, jdbcTemplate, preTable, preSql, preArgs.toList, preIds.toList)
+          exec(dbOpt, jdbcTemplate, targetDb, preSchema, preTable, preSql, preArgs.toList, preIds.toList)
         }
       } catch {
         case e: InterruptedException => throw e
@@ -113,15 +117,18 @@ class SyncWorker(dbContext: DbContext, partition: Int,
     }
   }
 
-  def exec(dbOpts: DbOperation, jdbcTemplate: JdbcTemplate,
+  def exec(dbOpts: DbOperation, jdbcTemplate: JdbcTemplate, targetDb: String, schema: String,
            table: String, sql: String, args: List[Array[AnyRef]],
-           ids: List[Long]) = {
+           ids: List[Long]): Unit = {
+    if (sql == null) {
+      return ();
+    }
     import scala.collection.JavaConverters._
     try {
       jdbcTemplate.batchUpdate(sql, args.asJava)
       val ackSql = dbOpts.batchAckSql(dbConfig)
       jdbcTemplate.batchUpdate(ackSql, ackArgs(ids, "OK", "").asJava)
-      logger.info("Sync {} data of table {}", args.size, table)
+      logger.info(s"Sync ${args.size} data for table $schema.$table[$targetDb]")
     } catch {
       case e: InterruptedException => throw e
       case e: Exception =>

@@ -1,6 +1,7 @@
 sys:
   batch: 10000
   partition: 10
+  maxPollWait: 5000
 
 
 db:
@@ -16,10 +17,10 @@ sync:
   - sourceDb: staging
     targetDb: staging
     sourceSchema: dbsync
-    sourceTable: test001
-    sourceKeys: f1
+    sourceTable: test01
+    sourceKeys: f1,f2
     targetSchema: dbsync
-    targetTable: test002
+    targetTable: test02
     insertCondition: null
-    updateCondition: null
+    updateCondition: NEW.f3='111'
     deleteCondition: null

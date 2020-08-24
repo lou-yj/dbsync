@@ -6,7 +6,7 @@ import com.google.common.hash.Hashing
 import com.louyj.tools.dbsync.config.{DatabaseConfig, SyncConfig}
 import com.louyj.tools.dbsync.sync.{SyncData, SyncDataModel}
 import org.slf4j.LoggerFactory
-import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.jdbc.core.{BeanPropertyRowMapper, JdbcTemplate}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
@@ -27,31 +27,32 @@ class PgOperation extends DbOperation {
   override def pollBatch(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, batch: Int, offset: Long): List[SyncDataModel] = {
     val sql =
       s"""
-      select * from ${dbConfig.sysSchema}.sync_data t1
+      select t1.* from ${dbConfig.sysSchema}.sync_data t1
       left join ${dbConfig.sysSchema}.sync_data_status t2
       on t1.id=t2."dataId"
       where t2.status is null and t1.id > $offset
       order by t1.id
       limit $batch
     """
-    jdbcTemplate.queryForList(sql, classOf[SyncDataModel]).asScala.toList
+    val rowMapper = BeanPropertyRowMapper.newInstance(classOf[SyncDataModel])
+    jdbcTemplate.query(sql, rowMapper).asScala.toList
   }
 
   override def batchInsertSql(syncData: SyncData, fieldBuffer: ListBuffer[String], valueBuffer: ListBuffer[AnyRef]): String = {
     s"""
             insert into \"${syncData.schema}\".\"${syncData.table}\"
-            (${fieldBuffer.mkString(",")}})
+            (${fieldBuffer.mkString(",")})
             values
-            (${(for (_ <- valueBuffer.indices) yield "?").mkString(",")}})
+            (${(for (_ <- valueBuffer.indices) yield "?").mkString(",")})
             ON CONFLICT (${syncData.key.mkString(",")}) DO NOTHING;
           """
   }
 
   override def batchUpdateSql(syncData: SyncData, fieldBuffer: ListBuffer[String], whereBuffer: ListBuffer[String]): String = {
     s"""
-            update from "${syncData.schema}"."${syncData.table}"
+            update "${syncData.schema}"."${syncData.table}"
             set ${fieldBuffer.mkString(",")}
-            where ${whereBuffer.mkString(",")}
+            where ${whereBuffer.mkString(" and ")}
           """
   }
 
@@ -71,6 +72,7 @@ class PgOperation extends DbOperation {
   override def buildInsertTrigger(dbName: String, sysSchema: String, jdbcTemplate: JdbcTemplate, syncConfig: SyncConfig): Unit = {
     val content =
       """
+        DROP TRIGGER IF EXISTS {{insertTrigger}} ON {{sourceSchema}}.{{sourceTable}};
         DROP FUNCTION IF EXISTS {{sourceSchema}}.{{insertFunction}};
         CREATE OR REPLACE FUNCTION {{sourceSchema}}.{{insertFunction}}()
          RETURNS trigger
@@ -84,14 +86,13 @@ class PgOperation extends DbOperation {
         end;
         $function$;
 
-        DROP TRIGGER IF EXISTS {{insertTrigger}} ON {{sourceSchema}}.{{sourceTable}};
         CREATE TRIGGER {{insertTrigger}}
         AFTER INSERT ON {{sourceSchema}}.{{sourceTable}}
         FOR EACH ROW
         EXECUTE PROCEDURE {{sourceSchema}}.{{insertFunction}}();
       """
     val insertTrigger = s"sync_insert_trigger"
-    val insertFunction = s"sync_${syncConfig.sourceSchema}.${syncConfig.sourceTable}_insert"
+    val insertFunction = s"sync_${syncConfig.sourceTable}_insert"
     val insertCondition = if (syncConfig.insertCondition == null) "1=1" else syncConfig.insertCondition
     val sql = content.replace("{{sourceSchema}}", syncConfig.sourceSchema)
       .replace("{{sourceTable}}", syncConfig.sourceTable)
@@ -118,6 +119,7 @@ class PgOperation extends DbOperation {
   override def buildUpdateTrigger(dbName: String, sysSchema: String, jdbcTemplate: JdbcTemplate, syncConfig: SyncConfig): Unit = {
     val content =
       """
+         DROP TRIGGER IF EXISTS {{updateTrigger}} ON {{sourceSchema}}.{{sourceTable}};
          DROP FUNCTION IF EXISTS {{sourceSchema}}.{{updateFunction}};
          CREATE OR REPLACE FUNCTION {{sourceSchema}}.{{updateFunction}}()
          RETURNS trigger
@@ -131,14 +133,13 @@ class PgOperation extends DbOperation {
         end;
         $function$;
 
-        DROP TRIGGER IF EXISTS {{updateTrigger}} ON {{sourceSchema}}.{{sourceTable}};
         CREATE TRIGGER {{updateTrigger}}
         AFTER UPDATE ON {{sourceSchema}}.{{sourceTable}}
         FOR EACH ROW
         EXECUTE PROCEDURE {{sourceSchema}}.{{updateFunction}}();
       """
     val updateTrigger = s"sync_update_trigger"
-    val updateFunction = s"sync_${syncConfig.sourceSchema}.${syncConfig.sourceTable}_update"
+    val updateFunction = s"sync_${syncConfig.sourceTable}_update"
     val updateCondition = if (syncConfig.updateCondition == null) "1=1" else syncConfig.updateCondition
     val sql = content.replace("{{sourceSchema}}", syncConfig.sourceSchema)
       .replace("{{sourceTable}}", syncConfig.sourceTable)
@@ -164,6 +165,7 @@ class PgOperation extends DbOperation {
   override def buildDeleteTrigger(dbName: String, sysSchema: String, jdbcTemplate: JdbcTemplate, syncConfig: SyncConfig): Unit = {
     val content =
       """
+        DROP TRIGGER IF EXISTS {{deleteTrigger}} ON {{sourceSchema}}.{{sourceTable}};
         DROP FUNCTION IF EXISTS {{sourceSchema}}.{{deleteFunction}};
         CREATE OR REPLACE FUNCTION {{sourceSchema}}.{{deleteFunction}}()
         RETURNS trigger
@@ -177,14 +179,13 @@ class PgOperation extends DbOperation {
         end;
         $function$;
 
-        DROP TRIGGER IF EXISTS {{deleteTrigger}} ON {{sourceSchema}}.{{sourceTable}};
         CREATE TRIGGER {{deleteTrigger}}
         AFTER DELETE ON {{sourceSchema}}.{{sourceTable}}
         FOR EACH ROW
         EXECUTE PROCEDURE {{sourceSchema}}.{{deleteFunction}}();
       """
     val deleteTrigger = s"sync_delete_trigger"
-    val deleteFunction = s"sync_${syncConfig.sourceSchema}.${syncConfig.sourceTable}_delete"
+    val deleteFunction = s"sync_${syncConfig.sourceTable}_delete"
     val deleteCondition = if (syncConfig.deleteCondition == null) "1=1" else syncConfig.deleteCondition
     val sql = content.replace("{{sourceSchema}}", syncConfig.sourceSchema)
       .replace("{{sourceTable}}", syncConfig.sourceTable)
@@ -304,7 +305,7 @@ class PgOperation extends DbOperation {
         ON CONFLICT ("schema","table","trigger")
         DO UPDATE SET "version"=EXCLUDED."version"
     """
-    jdbcTemplate.update(sql, Array[AnyRef](schema, table, trigger, version))
+    jdbcTemplate.update(sql, Array[AnyRef](schema, table, trigger, version): _*)
     ()
   }
 

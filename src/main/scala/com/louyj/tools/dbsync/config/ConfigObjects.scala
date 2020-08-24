@@ -29,6 +29,7 @@ case class SysConfig(var batch: Int = 10000, var partition: Int = 10,
 
 case class DbContext(queueManager: QueueManager,
                      dbConfig: DatabaseConfig,
+                     dbConfigs: Map[String, DatabaseConfig],
                      syncConfigs: Map[String, SyncConfig],
                      jdbcTemplate: JdbcTemplate,
                      dsPools: DatasourcePools,

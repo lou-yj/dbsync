@@ -37,6 +37,14 @@ class ConfigParser(stream: InputStream) {
       yield validateDbConfig(objectMapper.convertValue(item, classOf[DatabaseConfig]))
   }
 
+  def databaseConfigMap = {
+    (for (item <- configMap("db").asInstanceOf[util.List[util.Map[String, Any]]].asScala.toList)
+      yield {
+        val config = validateDbConfig(objectMapper.convertValue(item, classOf[DatabaseConfig]))
+        config.name -> config
+      }).toMap
+  }
+
   def syncConfig = {
     for (item <- configMap("sync").asInstanceOf[util.List[util.Map[String, Any]]].asScala.toList)
       yield validateSyncConfig(objectMapper.convertValue(item, classOf[SyncConfig]))

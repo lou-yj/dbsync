@@ -21,7 +21,7 @@ class DatabaseInitializer(dsPools: DatasourcePools, dbConfigs: List[DatabaseConf
   logger.info("Finish check system table status")
 
   def initDb(dbConfig: DatabaseConfig) = {
-    val dbOpt = DbOperationRegister.dbOpts(dbConfig.name)
+    val dbOpt = DbOperationRegister.dbOpts(dbConfig.`type`)
     val jdbcTemplate = dsPools.jdbcTemplate(dbConfig.name)
     dbOpt.buildSysTable(dbConfig.name, jdbcTemplate, dbConfig.sysSchema)
   }

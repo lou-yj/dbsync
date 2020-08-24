@@ -12,17 +12,17 @@ import scala.collection.mutable.ListBuffer
  * @author Louyj<br/>
  */
 
-@BeanProperty
+
 class SyncDataModel {
 
-  var id: Long = _
-  var sourceDb: String = _
-  var targetDb: String = _
-  var schema: String = _
-  var table: String = _
-  var operation: String = _
-  var data: String = _
-  var createTime: Timestamp = _
+  @BeanProperty var id: Long = _
+  @BeanProperty var sourceDb: String = _
+  @BeanProperty var targetDb: String = _
+  @BeanProperty var schema: String = _
+  @BeanProperty var table: String = _
+  @BeanProperty var operation: String = _
+  @BeanProperty var data: String = _
+  @BeanProperty var createTime: Timestamp = _
 }
 
 

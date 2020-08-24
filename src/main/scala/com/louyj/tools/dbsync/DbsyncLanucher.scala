@@ -30,6 +30,7 @@ object DbsyncLanucher {
     val syncConfigs = configParser.syncConfigMap
     val dbOpts = DbOperationRegister.dbOpts
     val dbConfigs = configParser.databaseConfig
+    val dbconfigsMap = configParser.databaseConfigMap
 
     new DatabaseInitializer(dsPools, dbConfigs)
 
@@ -37,7 +38,7 @@ object DbsyncLanucher {
     dbConfigs.foreach(dbConfig => {
       val queueManager = new QueueManager(sysConfig.partition)
       val jdbcTemplate = dsPools.jdbcTemplate(dbConfig.name)
-      val dbContext = DbContext(queueManager, dbConfig, syncConfigs, jdbcTemplate, dsPools, dbOpts, sysConfig)
+      val dbContext = DbContext(queueManager, dbConfig, dbconfigsMap, syncConfigs, jdbcTemplate, dsPools, dbOpts, sysConfig)
       new TriggerInitializer(dbContext, dsPools, configParser.syncConfig, dbConfig.sysSchema)
       logger.info("Setup sync workers for database {}", dbConfig.name)
       val pollThread = new DataPoller(dbContext)

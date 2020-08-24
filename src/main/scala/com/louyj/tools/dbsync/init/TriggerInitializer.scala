@@ -21,7 +21,7 @@ class TriggerInitializer(dbContext: DbContext, dsPools: DatasourcePools, syncCon
 
   def buildTrigger(syncConfig: SyncConfig) = {
     val dbName = syncConfig.sourceDb
-    val dbOpt = dbContext.dbOpts(dbName)
+    val dbOpt = dbContext.dbOpts(dbContext.dbConfig.`type`)
     val jdbcTemplate = dsPools.jdbcTemplate(dbName)
     dbOpt.buildInsertTrigger(dbName, sysSchema, jdbcTemplate, syncConfig)
     dbOpt.buildUpdateTrigger(dbName, sysSchema, jdbcTemplate, syncConfig)

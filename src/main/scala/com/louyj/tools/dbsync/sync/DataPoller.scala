@@ -66,7 +66,7 @@ class DataPoller(dbContext: DbContext) extends Thread {
         val percent = (batchSize - models.size) * 1.0 / batchSize
         val waitTime = (percent * maxPollWait).longValue()
         if (waitTime > 0) {
-          logger.info(s"Sleep $waitTime ms")
+          logger.debug(s"No enough data, wait $waitTime ms")
           TimeUnit.MILLISECONDS.sleep(waitTime)
         }
       } catch {
@@ -78,8 +78,12 @@ class DataPoller(dbContext: DbContext) extends Thread {
     }
   }
 
-  def pushModel(model: SyncDataModel, dataTable: HashBasedTable[String, Int, ListBuffer[SyncData]]) = {
+  def pushModel(model: SyncDataModel, dataTable: HashBasedTable[String, Int, ListBuffer[SyncData]]): Unit = {
     val syncKey = s"${model.sourceDb}:${model.schema}:${model.table}"
+    if (dbContext.syncConfigs.contains(syncKey) == false) {
+      logger.warn(s"No such sync table ${syncKey}")
+      return ()
+    }
     val syncConfig = dbContext.syncConfigs(syncKey)
     val targetDbs = syncConfig.targetDb
     for (targetDb <- targetDbs.split(",")) {
