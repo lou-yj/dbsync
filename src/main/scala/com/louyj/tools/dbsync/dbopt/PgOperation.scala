@@ -38,21 +38,13 @@ class PgOperation extends DbOperation {
     jdbcTemplate.query(sql, rowMapper).asScala.toList
   }
 
-  override def batchInsertSql(syncData: SyncData, fieldBuffer: ListBuffer[String], valueBuffer: ListBuffer[AnyRef]): String = {
+  override def batchUpsertSql(syncData: SyncData, fieldBuffer: ListBuffer[String], valueBuffer: ListBuffer[AnyRef], conflictSetBuffer: ListBuffer[AnyRef]): String = {
     s"""
             insert into \"${syncData.schema}\".\"${syncData.table}\"
             (${fieldBuffer.mkString(",")})
             values
             (${(for (_ <- valueBuffer.indices) yield "?").mkString(",")})
-            ON CONFLICT (${syncData.key.mkString(",")}) DO NOTHING;
-          """
-  }
-
-  override def batchUpdateSql(syncData: SyncData, fieldBuffer: ListBuffer[String], whereBuffer: ListBuffer[String]): String = {
-    s"""
-            update "${syncData.schema}"."${syncData.table}"
-            set ${fieldBuffer.mkString(",")}
-            where ${whereBuffer.mkString(" and ")}
+            ON CONFLICT (${syncData.key.mkString(",")}) DO UPDATE SET ${conflictSetBuffer.mkString(",")};
           """
   }
 

@@ -83,28 +83,28 @@ class SyncWorker(dbContext: DbContext, partition: Int,
       case "I" =>
         val fieldBuffer = new ListBuffer[String]
         val valueBuffer = new ListBuffer[AnyRef]
+        val conflictSetBuffer = new ListBuffer[AnyRef]
         syncData.data.foreach(item => {
           fieldBuffer += s"""\"${item._1}\""""
           valueBuffer += item._2
+          if (!syncData.key.contains(item._1)) {
+            conflictSetBuffer += s"""\"${item._1}\" = EXCLUDED.\"${item._1}\""""
+          }
         })
-        val sql = dbOpts.batchInsertSql(syncData, fieldBuffer, valueBuffer)
+        val sql = dbOpts.batchUpsertSql(syncData, fieldBuffer, valueBuffer, conflictSetBuffer)
         (sql, valueBuffer.toArray)
       case "U" =>
         val fieldBuffer = new ListBuffer[String]
         val valueBuffer = new ListBuffer[AnyRef]
-        val whereBuffer = new ListBuffer[String]
-        val whereValueBuffer = new ListBuffer[AnyRef]
+        val conflictSetBuffer = new ListBuffer[AnyRef]
         syncData.data.foreach(item => {
+          fieldBuffer += s"""\"${item._1}\""""
+          valueBuffer += item._2
           if (!syncData.key.contains(item._1)) {
-            fieldBuffer += s"""\"${item._1}\"=?"""
-            valueBuffer += item._2
-          } else {
-            whereBuffer += s"""\"${item._1}\"=?"""
-            whereValueBuffer += item._2
+            conflictSetBuffer += s"""\"${item._1}\" = EXCLUDED.\"${item._1}\""""
           }
         })
-        valueBuffer ++= whereValueBuffer
-        val sql = dbOpts.batchUpdateSql(syncData, fieldBuffer, whereBuffer)
+        val sql = dbOpts.batchUpsertSql(syncData, fieldBuffer, valueBuffer, conflictSetBuffer)
         (sql, valueBuffer.toArray)
       case "D" =>
         val whereBuffer = new ListBuffer[String]
@@ -146,7 +146,7 @@ class SyncWorker(dbContext: DbContext, partition: Int,
     logger.warn(s"Failed sync ${args.size} data for table $preTable, reason $reason")
     val ackSql = dbOpts.batchAckSql(dbConfig)
     import scala.collection.JavaConverters._
-    jdbcTemplate.batchUpdate(ackSql, ackArgs(ids, "ERR", reason).asJava)
+    targetJdbcTemplate.batchUpdate(ackSql, ackArgs(ids, "ERR", reason).asJava)
   }
 
   def ackArgs(ids: List[Long], status: String, message: String) = {
