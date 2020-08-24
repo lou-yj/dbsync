@@ -88,6 +88,7 @@ class ConfigParser(stream: InputStream) {
     if (sysConfig.batch == 0) sysConfig.batch = 10000
     if (sysConfig.partition == 0) sysConfig.partition = 10
     if (sysConfig.maxPollWait == 0) sysConfig.maxPollWait = 60000
+    if (sysConfig.cleanInterval == 0) sysConfig.cleanInterval = 3600000
     sysConfig
   }
 

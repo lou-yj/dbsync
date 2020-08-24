@@ -2,6 +2,7 @@ sys:
   batch: 10000
   partition: 10
   maxPollWait: 5000
+  cleanInterval: 10000
 
 
 db:

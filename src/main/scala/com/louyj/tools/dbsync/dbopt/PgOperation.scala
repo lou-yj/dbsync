@@ -245,7 +245,7 @@ class PgOperation extends DbOperation {
           drop table if exists dbsync.sync_data_status CASCADE;
           create table dbsync.sync_data_status
          (
-            "dataId" bigint REFERENCES dbsync.sync_data(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+            "dataId" bigint REFERENCES dbsync.sync_data(id) ON UPDATE CASCADE ON DELETE CASCADE,
             "status" varchar(10),
             "message" text,
             "createTime" TIMESTAMP not null default CURRENT_TIMESTAMP
@@ -276,6 +276,15 @@ class PgOperation extends DbOperation {
       jdbcTemplate.execute(sql)
       logger.info("System table {}.{}[{}] updated", schema, table, dbName)
     }
+  }
+
+  override def cleanSysTable(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig) = {
+    val sql =
+      s"""
+        delete from ${dbConfig.sysSchema}.sync_data where id in
+        (select "dataId" from ${dbConfig.sysSchema}.sync_data_status where status='OK');
+      """
+    jdbcTemplate.update(sql)
   }
 
   def triggerExists(jdbcTemplate: JdbcTemplate,

@@ -36,6 +36,7 @@ trait DbOperation {
   def buildSysTable(dbName: String, jdbcTemplate: JdbcTemplate,
                     sysSchema: String): Unit
 
+  def cleanSysTable(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig): Int
 }
 
 

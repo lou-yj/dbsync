@@ -5,7 +5,7 @@ import java.io.FileInputStream
 import com.louyj.tools.dbsync.config.{ConfigParser, DbContext}
 import com.louyj.tools.dbsync.dbopt.DbOperationRegister
 import com.louyj.tools.dbsync.init.{DatabaseInitializer, TriggerInitializer}
-import com.louyj.tools.dbsync.sync.{DataPoller, DataSyncer, QueueManager}
+import com.louyj.tools.dbsync.sync.{CleanWorker, DataPoller, DataSyncer, QueueManager}
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ListBuffer
@@ -33,6 +33,7 @@ object DbsyncLanucher {
     val dbconfigsMap = configParser.databaseConfigMap
 
     new DatabaseInitializer(dsPools, dbConfigs)
+    new CleanWorker(dsPools, sysConfig, dbConfigs)
 
     val threads = new ListBuffer[Thread]
     dbConfigs.foreach(dbConfig => {
