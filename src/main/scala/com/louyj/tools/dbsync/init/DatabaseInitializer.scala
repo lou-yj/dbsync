@@ -2,6 +2,7 @@ package com.louyj.tools.dbsync.init
 
 import com.louyj.tools.dbsync.DatasourcePools
 import com.louyj.tools.dbsync.config.{DatabaseConfig, DbContext}
+import com.louyj.tools.dbsync.dbopt.DbOperationRegister
 import org.slf4j.LoggerFactory
 
 /**
@@ -11,7 +12,7 @@ import org.slf4j.LoggerFactory
  * @author Louyj<br/>
  */
 
-class DatabaseInitializer(dbContext: DbContext, dsPools: DatasourcePools, dbConfigs: List[DatabaseConfig]) {
+class DatabaseInitializer(dsPools: DatasourcePools, dbConfigs: List[DatabaseConfig]) {
 
   val logger = LoggerFactory.getLogger(getClass)
 
@@ -20,7 +21,7 @@ class DatabaseInitializer(dbContext: DbContext, dsPools: DatasourcePools, dbConf
   logger.info("Finish check system table status")
 
   def initDb(dbConfig: DatabaseConfig) = {
-    val dbOpt = dbContext.dbOpts(dbConfig.name)
+    val dbOpt = DbOperationRegister.dbOpts(dbConfig.name)
     val jdbcTemplate = dsPools.jdbcTemplate(dbConfig.name)
     dbOpt.buildSysTable(dbConfig.name, jdbcTemplate, dbConfig.sysSchema)
   }

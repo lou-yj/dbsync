@@ -3,7 +3,7 @@ package com.louyj.tools.dbsync.sync
 import java.util.concurrent.TimeUnit
 
 import com.louyj.tools.dbsync.DatasourcePools
-import com.louyj.tools.dbsync.config.{DatabaseConfig, DbContext, SyncConfig}
+import com.louyj.tools.dbsync.config.{DatabaseConfig, DbContext}
 import com.louyj.tools.dbsync.dbopt.DbOperation
 import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.JdbcTemplate
@@ -20,7 +20,7 @@ import scala.collection.mutable.ListBuffer
 class DataSyncer(dbContext: DbContext) {
 
   for (partition <- 0 until dbContext.queueManager.partition) {
-    val sendWorker = new SyncWorker(dbContext, partition, dbContext.queueManager, dbContext.dsPools, dbContext.dbConfig, dbContext.syncConfigs)
+    val sendWorker = new SyncWorker(dbContext, partition, dbContext.queueManager, dbContext.dsPools, dbContext.dbConfig)
     sendWorker.start()
   }
 
@@ -28,14 +28,14 @@ class DataSyncer(dbContext: DbContext) {
 
 class SyncWorker(dbContext: DbContext, partition: Int,
                  queueManager: QueueManager, dsPools: DatasourcePools,
-                 dbConfig: DatabaseConfig, syncConfigs: Map[String, SyncConfig]) extends Thread {
+                 dbConfig: DatabaseConfig /*, syncConfigs: Map[String, SyncConfig]*/) extends Thread {
 
   val logger = LoggerFactory.getLogger(getClass)
 
   setName(s"sync-${dbConfig.name}-$partition")
 
   override def run(): Unit = {
-    logger.info("Start data sync worker for database {} partition {}", dbConfig.name, partition)
+    logger.info("Start sync worker for database {} partition {}", dbConfig.name, partition)
     while (!isInterrupted) {
       try {
         val batchData = queueManager.take(partition)
@@ -64,10 +64,9 @@ class SyncWorker(dbContext: DbContext, partition: Int,
         }
       } catch {
         case e: InterruptedException => throw e
-        case e: Exception => {
+        case e: Exception =>
           logger.error("Sync failed", e)
           TimeUnit.SECONDS.sleep(1)
-        }
       }
     }
   }
@@ -75,25 +74,21 @@ class SyncWorker(dbContext: DbContext, partition: Int,
   def toSql(dbOpts: DbOperation, targetDb: String, syncData: SyncData): (String, Array[AnyRef]) = {
     syncData.operation match {
       case "I" =>
-        val key = s"$targetDb:${syncData.schema}:${syncData.table}"
-        val syncConfig = syncConfigs(key)
         val fieldBuffer = new ListBuffer[String]
         val valueBuffer = new ListBuffer[AnyRef]
         syncData.data.foreach(item => {
           fieldBuffer += s"""\"${item._1}\""""
           valueBuffer += item._2
         })
-        val sql = dbOpts.batchInsertSql(syncData, syncConfig.sourceKeys, fieldBuffer, valueBuffer)
+        val sql = dbOpts.batchInsertSql(syncData, fieldBuffer, valueBuffer)
         (sql, valueBuffer.toArray)
       case "U" =>
-        val key = s"$targetDb:${syncData.schema}:${syncData.table}"
-        val syncConfig = syncConfigs(key)
         val fieldBuffer = new ListBuffer[String]
         val valueBuffer = new ListBuffer[AnyRef]
         val whereBuffer = new ListBuffer[String]
         val whereValueBuffer = new ListBuffer[AnyRef]
         syncData.data.foreach(item => {
-          if (!syncConfig.sourceKeys.contains(item._1)) {
+          if (!syncData.key.contains(item._1)) {
             fieldBuffer += s"""\"${item._1}\"=?"""
             valueBuffer += item._2
           } else {
@@ -105,12 +100,10 @@ class SyncWorker(dbContext: DbContext, partition: Int,
         val sql = dbOpts.batchUpdateSql(syncData, fieldBuffer, whereBuffer)
         (sql, valueBuffer.toArray)
       case "D" =>
-        val key = s"$targetDb:${syncData.schema}:${syncData.table}"
-        val syncConfig = syncConfigs(key)
         val whereBuffer = new ListBuffer[String]
         val whereValueBuffer = new ListBuffer[AnyRef]
         syncData.data.foreach(item => {
-          if (syncConfig.sourceKeys.contains(item._1)) {
+          if (syncData.key.contains(item._1)) {
             whereBuffer += s"""\"${item._1}\"=?"""
             whereValueBuffer += item._2
           }

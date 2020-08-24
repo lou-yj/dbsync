@@ -16,7 +16,7 @@ class TriggerInitializer(dbContext: DbContext, dsPools: DatasourcePools, syncCon
   val logger = LoggerFactory.getLogger(getClass)
 
   logger.info("Start check trigger status")
-  syncConfigs.foreach(buildTrigger)
+  syncConfigs.filter(_.sourceDb == dbContext.dbConfig.name).foreach(buildTrigger)
   logger.info("Finish check trigger status")
 
   def buildTrigger(syncConfig: SyncConfig) = {

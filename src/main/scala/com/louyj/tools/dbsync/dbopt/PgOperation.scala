@@ -37,13 +37,13 @@ class PgOperation extends DbOperation {
     jdbcTemplate.queryForList(sql, classOf[SyncDataModel]).asScala.toList
   }
 
-  override def batchInsertSql(syncData: SyncData, sourceKeys: String, fieldBuffer: ListBuffer[String], valueBuffer: ListBuffer[AnyRef]): String = {
+  override def batchInsertSql(syncData: SyncData, fieldBuffer: ListBuffer[String], valueBuffer: ListBuffer[AnyRef]): String = {
     s"""
             insert into \"${syncData.schema}\".\"${syncData.table}\"
             (${fieldBuffer.mkString(",")}})
             values
             (${(for (_ <- valueBuffer.indices) yield "?").mkString(",")}})
-            ON CONFLICT ($sourceKeys}) DO NOTHING;
+            ON CONFLICT (${syncData.key.mkString(",")}) DO NOTHING;
           """
   }
 

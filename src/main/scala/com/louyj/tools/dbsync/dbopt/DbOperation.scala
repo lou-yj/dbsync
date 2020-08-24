@@ -19,7 +19,7 @@ trait DbOperation {
 
   def pollBatch(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, batch: Int, offset: Long): List[SyncDataModel]
 
-  def batchInsertSql(syncData: SyncData, sourceKeys: String, fieldBuffer: ListBuffer[String], valueBuffer: ListBuffer[AnyRef]): String
+  def batchInsertSql(syncData: SyncData, fieldBuffer: ListBuffer[String], valueBuffer: ListBuffer[AnyRef]): String
 
   def batchUpdateSql(syncData: SyncData, fieldBuffer: ListBuffer[String], whereBuffer: ListBuffer[String]): String
 
