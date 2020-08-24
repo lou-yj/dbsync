@@ -27,11 +27,11 @@ class CleanWorker(dsPools: DatasourcePools,
 
   override def run(): Unit = {
     def cleanFun = (dbConfig: DatabaseConfig) => {
-      logger.info(s"Start clean system table for ${dbConfig.name}")
+      logger.info(s"Start clean system tables for ${dbConfig.name}")
       val jdbcTemplate = dsPools.jdbcTemplate(dbConfig.name)
       val dbOpt = DbOperationRegister.dbOpts(dbConfig.`type`)
       val count = dbOpt.cleanSysTable(jdbcTemplate, dbConfig)
-      logger.info(s"Finish clean system table for ${dbConfig.name}, cleaned $count datas")
+      logger.info(s"Finish clean system tables for ${dbConfig.name}, cleaned $count datas")
     }
 
     dbConfigs.foreach(cleanFun)
