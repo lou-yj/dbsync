@@ -30,7 +30,7 @@ class CleanWorker(dsPools: DatasourcePools,
       logger.info(s"Start clean system tables for ${dbConfig.name}")
       val jdbcTemplate = dsPools.jdbcTemplate(dbConfig.name)
       val dbOpt = DbOperationRegister.dbOpts(dbConfig.`type`)
-      val count = dbOpt.cleanSysTable(jdbcTemplate, dbConfig)
+      val count = dbOpt.cleanSysTable(jdbcTemplate, dbConfig, sysConfig.dataKeepHours)
       logger.info(s"Finish clean system tables for ${dbConfig.name}, cleaned $count datas")
     }
 

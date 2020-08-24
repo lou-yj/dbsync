@@ -26,7 +26,8 @@ case class SyncConfig(sourceDb: String, targetDb: String,
 
 case class SysConfig(var batch: Int = 10000, var partition: Int = 10,
                      var maxPollWait: Long = 60000,
-                     var cleanInterval: Long = 3600000)
+                     var cleanInterval: Long = 3600000,
+                     var dataKeepHours: Int = 24)
 
 case class DbContext(queueManager: QueueManager,
                      dbConfig: DatabaseConfig,

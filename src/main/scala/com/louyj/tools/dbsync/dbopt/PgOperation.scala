@@ -293,11 +293,13 @@ class PgOperation extends DbOperation {
     }
   }
 
-  override def cleanSysTable(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig) = {
+  override def cleanSysTable(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, keepHours: Int) = {
     val sql =
       s"""
         delete from ${dbConfig.sysSchema}.sync_data where id in
-        (select "dataId" from ${dbConfig.sysSchema}.sync_data_status where status='OK');
+        (select "dataId" from ${dbConfig.sysSchema}.sync_data_status where status='OK'
+        and "createTime" < current_timestamp-'$keepHours hour'::interval
+        );
       """
     jdbcTemplate.update(sql)
   }
