@@ -78,9 +78,14 @@ class PgOperation extends DbOperation {
          RETURNS trigger
          LANGUAGE plpgsql
         AS $function$
+        declare
+          target_db varchar;
         begin
-          if {{insertCondition}} and 1=1 then
-            insert into {{sysSchema}}.sync_data ("sourceDb","targetDb","schema","table","operation","data") values ('{{sourceDb}}','{{targetDb}}','{{sourceSchema}}','{{sourceTable}}','I',row_to_json(NEW));
+          if {{insertCondition}} then
+            FOREACH  target_db in array regexp_split_to_array('{{targetDb}}',',')
+            loop
+              insert into {{sysSchema}}.sync_data ("sourceDb","targetDb","schema","table","operation","data") values ('{{sourceDb}}',target_db,'{{sourceSchema}}','{{sourceTable}}','I',row_to_json(NEW));
+            end loop;
           end if;
         return null;
         end;
@@ -125,9 +130,14 @@ class PgOperation extends DbOperation {
          RETURNS trigger
          LANGUAGE plpgsql
         AS $function$
+        declare
+          target_db varchar;
         begin
-          if {{updateCondition}} and 1=1 then
-            insert into {{sysSchema}}.sync_data ("sourceDb","targetDb","schema","table","operation","data") values ('{{sourceDb}}','{{targetDb}}','{{sourceSchema}}','{{sourceTable}}','U',row_to_json(NEW));
+          if {{updateCondition}} then
+            FOREACH  target_db in array regexp_split_to_array('{{targetDb}}',',')
+            loop
+              insert into {{sysSchema}}.sync_data ("sourceDb","targetDb","schema","table","operation","data") values ('{{sourceDb}}',target_db,'{{sourceSchema}}','{{sourceTable}}','U',row_to_json(NEW));
+            end loop;
           end if;
         return null;
         end;
@@ -171,9 +181,14 @@ class PgOperation extends DbOperation {
         RETURNS trigger
         LANGUAGE plpgsql
         AS $function$
+        declare
+          target_db varchar;
         begin
-          if {{deleteCondition}} and 1=1 then
-            insert into {{sysSchema}}.sync_data ("sourceDb","targetDb","schema","table","operation","data") values ('{{sourceDb}}','{{targetDb}}','{{sourceSchema}}','{{sourceTable}}','D',row_to_json(OLD));
+          if {{deleteCondition}} then
+            FOREACH  target_db in array regexp_split_to_array('{{targetDb}}',',')
+            loop
+              insert into {{sysSchema}}.sync_data ("sourceDb","targetDb","schema","table","operation","data") values ('{{sourceDb}}',target_db,'{{sourceSchema}}','{{sourceTable}}','D',row_to_json(OLD));
+            end loop;
           end if;
         return null;
         end;

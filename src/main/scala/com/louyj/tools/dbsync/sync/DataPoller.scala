@@ -84,26 +84,22 @@ class DataPoller(dbContext: DbContext) extends Thread {
       logger.warn(s"No such sync table ${syncKey}")
       return ()
     }
+    val targetDb = model.targetDb
     val syncConfig = dbContext.syncConfigs(syncKey)
-    val targetDbs = syncConfig.targetDb
-    for (targetDb <- targetDbs.split(",")) {
-      val schema = if (syncConfig.targetSchema == null) model.schema else syncConfig.targetSchema
-      val table = if (syncConfig.targetTable == null) model.table else syncConfig.targetTable
-      val keys = syncConfig.sourceKeys.split(",")
-      val data = objectMapper.readValue(model.data, classOf[Map[String, AnyRef]])
-      val syncData = SyncData(model.id, model.operation, schema, table, keys, data)
-      val keyValues = (for (item <- keys) yield data.getOrElse(item, "")).mkString(":")
-      val partitionKey = s"$schema:$table:$keyValues"
-      val partition = math.abs(Hashing.murmur3_32().newHasher().putString(partitionKey, StandardCharsets.UTF_8).hash().asInt() % dbContext.sysConfig.partition)
-      var listBuffer = dataTable.get(targetDb, partition)
-      if (listBuffer == null) {
-        listBuffer = new ListBuffer[SyncData]
-        dataTable.put(targetDb, partition, listBuffer)
-      }
-      listBuffer += syncData
+    val schema = if (syncConfig.targetSchema == null) model.schema else syncConfig.targetSchema
+    val table = if (syncConfig.targetTable == null) model.table else syncConfig.targetTable
+    val keys = syncConfig.sourceKeys.split(",")
+    val data = objectMapper.readValue(model.data, classOf[Map[String, AnyRef]])
+    val syncData = SyncData(model.id, model.operation, schema, table, keys, data)
+    val keyValues = (for (item <- keys) yield data.getOrElse(item, "")).mkString(":")
+    val partitionKey = s"$schema:$table:$keyValues"
+    val partition = math.abs(Hashing.murmur3_32().newHasher().putString(partitionKey, StandardCharsets.UTF_8).hash().asInt() % dbContext.sysConfig.partition)
+    var listBuffer = dataTable.get(targetDb, partition)
+    if (listBuffer == null) {
+      listBuffer = new ListBuffer[SyncData]
+      dataTable.put(targetDb, partition, listBuffer)
     }
-
-
+    listBuffer += syncData
   }
 
 

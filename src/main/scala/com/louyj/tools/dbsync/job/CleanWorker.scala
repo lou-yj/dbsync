@@ -1,4 +1,4 @@
-package com.louyj.tools.dbsync.sync
+package com.louyj.tools.dbsync.job
 
 import java.util.{Timer, TimerTask}
 
