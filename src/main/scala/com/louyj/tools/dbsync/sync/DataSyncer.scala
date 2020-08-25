@@ -80,20 +80,7 @@ class SyncWorker(dbContext: DbContext, partition: Int,
 
   def toSql(dbOpts: DbOperation, targetDb: String, syncData: SyncData): (String, Array[AnyRef]) = {
     syncData.operation match {
-      case "I" =>
-        val fieldBuffer = new ListBuffer[String]
-        val valueBuffer = new ListBuffer[AnyRef]
-        val conflictSetBuffer = new ListBuffer[AnyRef]
-        syncData.data.foreach(item => {
-          fieldBuffer += s"""\"${item._1}\""""
-          valueBuffer += item._2
-          if (!syncData.key.contains(item._1)) {
-            conflictSetBuffer += s"""\"${item._1}\" = EXCLUDED.\"${item._1}\""""
-          }
-        })
-        val sql = dbOpts.batchUpsertSql(syncData, fieldBuffer, valueBuffer, conflictSetBuffer)
-        (sql, valueBuffer.toArray)
-      case "U" =>
+      case "I" | "U" =>
         val fieldBuffer = new ListBuffer[String]
         val valueBuffer = new ListBuffer[AnyRef]
         val conflictSetBuffer = new ListBuffer[AnyRef]
