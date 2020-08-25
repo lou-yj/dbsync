@@ -23,7 +23,7 @@ trait DbOperation {
 
   def batchDeleteSql(syncData: SyncData, whereBuffer: ListBuffer[String]): String
 
-  def batchAckSql(dbConfig: DatabaseConfig): String
+  def batchAckSql(sysSchema: String): String
 
   def buildInsertTrigger(dbName: String, sysSchema: String, jdbcTemplate: JdbcTemplate, syncConfig: SyncConfig)
 

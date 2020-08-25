@@ -10,9 +10,11 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.google.common.collect.HashBasedTable
 import com.google.common.hash.Hashing
-import com.louyj.tools.dbsync.config.DbContext
+import com.louyj.tools.dbsync.config.{DatabaseConfig, SyncConfig, SysConfig}
+import com.louyj.tools.dbsync.dbopt.DbOperationRegister
 import org.joda.time.DateTime
 import org.slf4j.LoggerFactory
+import org.springframework.jdbc.core.JdbcTemplate
 
 import scala.collection.mutable.ListBuffer
 
@@ -23,7 +25,9 @@ import scala.collection.mutable.ListBuffer
  * @author Louyj<br/>
  */
 
-class DataPoller(dbContext: DbContext) extends Thread {
+class DataPoller(sysConfig: SysConfig, dbConfig: DatabaseConfig,
+                 jdbc: JdbcTemplate, queueManager: QueueManager,
+                 syncConfigs: Map[String, SyncConfig]) extends Thread {
 
   val logger = LoggerFactory.getLogger(getClass)
 
@@ -35,26 +39,24 @@ class DataPoller(dbContext: DbContext) extends Thread {
   var startTime: Timestamp = _
   var endTime: Timestamp = _
 
-  setName(s"poller-${dbContext.dbConfig.name}")
+  setName(s"poller-${dbConfig.name}")
   start()
 
 
   override def run(): Unit = {
-    val dbConfig = dbContext.dbConfig
-    val jdbcTemplate = dbContext.jdbcTemplate
-    val dbOpt = dbContext.dbOpts(dbConfig.`type`)
-    val maxPollWait = dbContext.sysConfig.maxPollWait
-    val batchSize = dbContext.sysConfig.batch
+    val dbOpt = DbOperationRegister.dbOpts(dbConfig.`type`)
+    val maxPollWait = sysConfig.maxPollWait
+    val batchSize = sysConfig.batch
     logger.info("Start data poller for databasse {}", dbConfig.name)
     while (!isInterrupted) {
       try {
-        val models = dbOpt.pollBatch(jdbcTemplate, dbConfig, batchSize, offsetStatus)
+        val models = dbOpt.pollBatch(jdbc, dbConfig, batchSize, offsetStatus)
         if (models.nonEmpty) {
           val dataTable: HashBasedTable[String, Int, ListBuffer[SyncData]] = HashBasedTable.create()
           models.foreach(pushModel(_, dataTable))
           dataTable.cellSet().forEach(c => {
-            val batch = BatchData(c.getRowKey, c.getColumnKey, c.getValue)
-            dbContext.queueManager.put(c.getColumnKey, batch)
+            val batch = BatchData(dbConfig.name, c.getRowKey, c.getColumnKey, c.getValue)
+            queueManager.put(c.getColumnKey, batch)
           })
           offsetStatus = models.last.id
           startTime = models.head.createTime
@@ -80,20 +82,21 @@ class DataPoller(dbContext: DbContext) extends Thread {
 
   def pushModel(model: SyncDataModel, dataTable: HashBasedTable[String, Int, ListBuffer[SyncData]]): Unit = {
     val syncKey = s"${model.sourceDb}:${model.schema}:${model.table}"
-    if (dbContext.syncConfigs.contains(syncKey) == false) {
-      logger.warn(s"No such sync table ${syncKey}")
+    if (!syncConfigs.contains(syncKey)) {
+      logger.warn(s"No such sync table $syncKey")
       return ()
     }
     val targetDb = model.targetDb
-    val syncConfig = dbContext.syncConfigs(syncKey)
+    val syncConfig = syncConfigs(syncKey)
     val schema = if (syncConfig.targetSchema == null) model.schema else syncConfig.targetSchema
     val table = if (syncConfig.targetTable == null) model.table else syncConfig.targetTable
     val keys = syncConfig.sourceKeys.split(",")
     val data = objectMapper.readValue(model.data, classOf[Map[String, AnyRef]])
-    val syncData = SyncData(model.id, model.operation, schema, table, keys, data)
     val keyValues = (for (item <- keys) yield data.getOrElse(item, "")).mkString(":")
     val partitionKey = s"$schema:$table:$keyValues"
-    val partition = math.abs(Hashing.murmur3_32().newHasher().putString(partitionKey, StandardCharsets.UTF_8).hash().asInt() % dbContext.sysConfig.partition)
+    val hash = Hashing.murmur3_32().newHasher().putString(partitionKey, StandardCharsets.UTF_8).hash().asLong()
+    val syncData = SyncData(hash, model.id, model.operation, schema, table, keys, data)
+    val partition = math.abs(hash % sysConfig.partition).intValue
     var listBuffer = dataTable.get(targetDb, partition)
     if (listBuffer == null) {
       listBuffer = new ListBuffer[SyncData]

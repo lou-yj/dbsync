@@ -26,10 +26,15 @@ class SyncDataModel {
 }
 
 
-case class SyncData(id: Long, operation: String,
+case class SyncData(hash: Long, id: Long, operation: String,
                     schema: String, table: String, key: Array[String]
                     , data: Map[String, AnyRef])
 
-case class BatchData(targetDb: String, partition: Int, items: ListBuffer[SyncData])
+case class BatchData(sourceDb: String, targetDb: String, partition: Int, var items: ListBuffer[SyncData])
 
 case class AckData(dbName: String, ids: List[Long], status: String, message: String)
+
+case class ErrorBatch(sourceDb: String, targetDb: String, preTable: String, args: List[Array[AnyRef]],
+                      ids: List[Long], hashs: List[Long], reason: String)
+
+case class BlockedData(sourceDb: String, hash: Long, ids: Set[Long])

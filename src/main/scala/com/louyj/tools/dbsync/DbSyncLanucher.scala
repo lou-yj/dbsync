@@ -2,8 +2,9 @@ package com.louyj.tools.dbsync
 
 import java.io.FileInputStream
 
-import com.louyj.tools.dbsync.config.{ConfigParser, DbContext}
+import com.louyj.tools.dbsync.config.ConfigParser
 import com.louyj.tools.dbsync.dbopt.DbOperationRegister
+import com.louyj.tools.dbsync.dbopt.DbOperationRegister.dbOpts
 import com.louyj.tools.dbsync.init.{DatabaseInitializer, TriggerInitializer}
 import com.louyj.tools.dbsync.job.CleanWorker
 import com.louyj.tools.dbsync.sync.{DataPoller, DataSyncer, QueueManager}
@@ -29,23 +30,19 @@ object DbSyncLanucher {
     val dsPools = new DatasourcePools(configParser.databaseConfig)
     val sysConfig = configParser.sysConfig
     val syncConfigs = configParser.syncConfigMap
-    val dbOpts = DbOperationRegister.dbOpts
     val dbConfigs = configParser.databaseConfig
     val dbconfigsMap = configParser.databaseConfigMap
 
     new DatabaseInitializer(dsPools, dbConfigs)
     new CleanWorker(dsPools, sysConfig, dbConfigs)
+    val queueManager = new QueueManager(sysConfig.partition)
+    new DataSyncer(dbconfigsMap, queueManager, dsPools)
 
     val threads = new ListBuffer[Thread]
     dbConfigs.foreach(dbConfig => {
-      val queueManager = new QueueManager(sysConfig.partition)
-      val jdbcTemplate = dsPools.jdbcTemplate(dbConfig.name)
-      val dbContext = DbContext(queueManager, dbConfig, dbconfigsMap, syncConfigs, jdbcTemplate, dsPools, dbOpts, sysConfig)
-      new TriggerInitializer(dbContext, dsPools, configParser.syncConfig, dbConfig.sysSchema)
-      logger.info("Setup sync workers for database {}", dbConfig.name)
-      val pollThread = new DataPoller(dbContext)
-      new DataSyncer(dbContext)
-      threads += pollThread
+      val jdbc = dsPools.jdbcTemplate(dbConfig.name)
+      new TriggerInitializer(dbConfig, dsPools, configParser.syncConfig, dbConfig.sysSchema)
+      threads += new DataPoller(sysConfig, dbConfig, jdbc, queueManager, syncConfigs)
     })
     logger.info("Application lanuched")
     threads.foreach(_.join())

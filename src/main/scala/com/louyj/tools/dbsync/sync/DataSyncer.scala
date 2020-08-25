@@ -2,10 +2,10 @@ package com.louyj.tools.dbsync.sync
 
 import java.util.concurrent.TimeUnit
 
-import com.google.gson.Gson
 import com.louyj.tools.dbsync.DatasourcePools
-import com.louyj.tools.dbsync.config.{DatabaseConfig, DbContext}
+import com.louyj.tools.dbsync.config.DatabaseConfig
 import com.louyj.tools.dbsync.dbopt.DbOperation
+import com.louyj.tools.dbsync.dbopt.DbOperationRegister.dbOpts
 import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.JdbcTemplate
 
@@ -18,45 +18,52 @@ import scala.collection.mutable.ListBuffer
  * @author Louyj<br/>
  */
 
-class DataSyncer(dbContext: DbContext) {
+class DataSyncer(dbConfigs: Map[String, DatabaseConfig],
+                 queueManager: QueueManager, dsPools: DatasourcePools) {
 
-  for (partition <- 0 until dbContext.queueManager.partition) {
-    val sendWorker = new SyncWorker(dbContext, partition, dbContext.queueManager, dbContext.dsPools, dbContext.dbConfig)
+  for (partition <- 0 until queueManager.partition) {
+    val sendWorker = new SyncWorker(partition, dbConfigs, queueManager, dsPools)
     sendWorker.start()
   }
-
 }
 
-class SyncWorker(dbContext: DbContext, partition: Int,
-                 queueManager: QueueManager, dsPools: DatasourcePools,
-                 dbConfig: DatabaseConfig /*, syncConfigs: Map[String, SyncConfig]*/) extends Thread {
+class SyncWorker(partition: Int,
+                 dbConfigs: Map[String, DatabaseConfig],
+                 queueManager: QueueManager, dsPools: DatasourcePools) extends Thread {
 
   val logger = LoggerFactory.getLogger(getClass)
 
-  setName(s"sync-${dbConfig.name}-$partition")
+  setName(s"sync-$partition")
 
   override def run(): Unit = {
-    logger.info("Start sync worker for {}[{}]", dbConfig.name, partition)
-    val dbConfigs = dbContext.dbConfigs
+    logger.info(s"Start sync worker $getName")
     while (!isInterrupted) {
       try {
         val batchData = queueManager.take(partition)
-        val jdbcTemplate = dsPools.jdbcTemplate(batchData.targetDb)
-        val targetJdbcTemplate = dsPools.jdbcTemplate(dbConfig.name)
-        var targetDb = batchData.targetDb
+        val targetDb = batchData.targetDb
+        val sourceDb = batchData.sourceDb
+        val tarJdbc = dsPools.jdbcTemplate(targetDb)
+        val srcJdbc = dsPools.jdbcTemplate(sourceDb)
         var preSchema: String = null
         var preTable: String = null
         var preSql: String = null
         val preArgs = new ListBuffer[Array[AnyRef]]
         val preIds = new ListBuffer[Long]
-        val dbOpt = dbContext.dbOpts(dbConfigs(batchData.targetDb).`type`)
+        val preHashs = new ListBuffer[Long]
+        val targetDbConfig = dbConfigs(targetDb)
+        val sourceDbConfig = dbConfigs(sourceDb)
+        val dbOpt = dbOpts(targetDbConfig.`type`)
+        val sourceSysSchema = sourceDbConfig.sysSchema
         batchData.items.foreach(syncData => {
-          val sqlTuple = toSql(dbOpt, batchData.targetDb, syncData)
+          val sqlTuple = toSql(dbOpt, syncData)
           if (preSql == sqlTuple._1) {
             preArgs += sqlTuple._2
             preIds += syncData.id
+            preHashs += syncData.hash
           } else {
-            exec(dbOpt, jdbcTemplate, targetJdbcTemplate, targetDb, preSchema, preTable, preSql, preArgs.toList, preIds.toList)
+            exec(sourceDb, targetDb, sourceSysSchema,
+              dbOpt, srcJdbc, tarJdbc,
+              preSchema, preTable, preSql, preArgs.toList, preIds.toList, preHashs.toList)
             preSchema = syncData.schema
             preTable = syncData.table
             preSql = sqlTuple._1
@@ -64,10 +71,14 @@ class SyncWorker(dbContext: DbContext, partition: Int,
             preArgs += sqlTuple._2
             preIds.clear()
             preIds += syncData.id
+            preHashs.clear()
+            preHashs += syncData.hash
           }
         })
         if (preArgs.nonEmpty) {
-          exec(dbOpt, jdbcTemplate, targetJdbcTemplate, targetDb, preSchema, preTable, preSql, preArgs.toList, preIds.toList)
+          exec(sourceDb, targetDb, sourceSysSchema,
+            dbOpt, srcJdbc, tarJdbc,
+            preSchema, preTable, preSql, preArgs.toList, preIds.toList, preHashs.toList)
         }
       } catch {
         case e: InterruptedException => throw e
@@ -78,7 +89,7 @@ class SyncWorker(dbContext: DbContext, partition: Int,
     }
   }
 
-  def toSql(dbOpts: DbOperation, targetDb: String, syncData: SyncData): (String, Array[AnyRef]) = {
+  def toSql(dbOpts: DbOperation, syncData: SyncData): (String, Array[AnyRef]) = {
     syncData.operation match {
       case "I" | "U" =>
         val fieldBuffer = new ListBuffer[String]
@@ -107,33 +118,39 @@ class SyncWorker(dbContext: DbContext, partition: Int,
     }
   }
 
-  def exec(dbOpts: DbOperation, jdbcTemplate: JdbcTemplate, targetJdbcTemplate: JdbcTemplate, targetDb: String, schema: String,
-           table: String, sql: String, args: List[Array[AnyRef]],
-           ids: List[Long]): Unit = {
-    if (sql == null) {
-      return ();
-    }
+  def exec(sourceDb: String, targetDb: String,
+           sourceSysSchema: String,
+           dbOpts: DbOperation, srcJdbc: JdbcTemplate, tarJdbc: JdbcTemplate,
+           schema: String, table: String,
+           sql: String, args: List[Array[AnyRef]],
+           ids: List[Long], hashs: List[Long]): Unit = {
+    if (sql == null) return ()
     import scala.collection.JavaConverters._
     try {
-      jdbcTemplate.batchUpdate(sql, args.asJava)
-      val ackSql = dbOpts.batchAckSql(dbConfig)
-      targetJdbcTemplate.batchUpdate(ackSql, ackArgs(ids, "OK", "").asJava)
+      tarJdbc.batchUpdate(sql, args.asJava)
+      val ackSql = dbOpts.batchAckSql(sourceSysSchema)
+      srcJdbc.batchUpdate(ackSql, ackArgs(ids, "OK", "").asJava)
       logger.info(s"Sync ${args.size} data for table $schema.$table[$targetDb]")
     } catch {
       case e: InterruptedException => throw e
       case e: Exception =>
         val reason = s"${e.getClass.getSimpleName}-${e.getMessage}"
-        fallbackExec(dbOpts, jdbcTemplate, targetJdbcTemplate, table, args, ids, reason)
+        fallbackExec(sourceDb, targetDb, sourceSysSchema,
+          dbOpts, srcJdbc, table, args, ids, hashs, reason)
     }
   }
 
-  def fallbackExec(dbOpts: DbOperation, jdbcTemplate: JdbcTemplate, targetJdbcTemplate: JdbcTemplate,
-                   preTable: String, args: List[Array[AnyRef]],
-                   ids: List[Long], reason: String): Unit = {
+  def fallbackExec(sourceDb: String, targetDb: String,
+                   sourceSysSchema: String,
+                   dbOpts: DbOperation, tarJdbc: JdbcTemplate,
+                   preTable: String, args: List[Array[AnyRef]], ids: List[Long], hashs: List[Long], reason: String): Unit = {
     logger.warn(s"Failed sync ${args.size} data for table $preTable, reason $reason")
-    val ackSql = dbOpts.batchAckSql(dbConfig)
+    val ackSql = dbOpts.batchAckSql(sourceSysSchema)
     import scala.collection.JavaConverters._
-    targetJdbcTemplate.batchUpdate(ackSql, ackArgs(ids, "ERR", reason).asJava)
+    tarJdbc.batchUpdate(ackSql, ackArgs(ids, "ERR", reason).asJava)
+
+    val errorBatch = ErrorBatch(sourceDb, targetDb, preTable, args, ids, hashs, reason)
+    queueManager.putError(errorBatch)
   }
 
   def ackArgs(ids: List[Long], status: String, message: String) = {

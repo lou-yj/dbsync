@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets
 import com.google.common.hash.Hashing
 import com.louyj.tools.dbsync.config.{DatabaseConfig, SyncConfig}
 import com.louyj.tools.dbsync.sync.{SyncData, SyncDataModel}
+import org.checkerframework.checker.units.qual.s
 import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.{BeanPropertyRowMapper, JdbcTemplate}
 
@@ -55,9 +56,12 @@ class PgOperation extends DbOperation {
           """
   }
 
-  override def batchAckSql(dbConfig: DatabaseConfig): String = {
+  override def batchAckSql(sysSchema: String): String = {
     s"""
-          insert into ${dbConfig.sysSchema}.sync_data_status ("dataId",status,message) values (?,?,?);
+          insert into ${sysSchema}.sync_data_status
+          ("dataId",status,message) values (?,?,?)
+          on conflict ("dataId") do update set
+          status=EXCLUDED.status,message=EXCLUDED.message;
     """
   }
 
@@ -223,13 +227,13 @@ class PgOperation extends DbOperation {
     } else {
       logger.info("System table {}.{}[{}] not exists, rebuild it", schema, table, dbName)
       val sql =
-        """
-          drop table if exists dbsync.sync_data CASCADE;
-          drop sequence if exists dbsync.seq_sync_data CASCADE;
-          create sequence dbsync.seq_sync_data start 1;
-          create table dbsync.sync_data
+        s"""
+          drop table if exists $schema.sync_data CASCADE;
+          drop sequence if exists $schema.seq_sync_data CASCADE;
+          create sequence $schema.seq_sync_data start 1;
+          create table $schema.sync_data
          (
-            "id" bigint not null DEFAULT(nextval('dbsync.seq_sync_data')) PRIMARY KEY,
+            "id" bigint not null DEFAULT(nextval('$schema.seq_sync_data')) PRIMARY KEY,
             "sourceDb" varchar(512),
             "targetDb" varchar(512),
             "schema" varchar(512),
@@ -248,16 +252,39 @@ class PgOperation extends DbOperation {
     } else {
       logger.info("System table {}.{}[{}] not exists, rebuild it", schema, table, dbName)
       val sql =
-        """
-          drop table if exists dbsync.sync_data_status CASCADE;
-          create table dbsync.sync_data_status
+        s"""
+          drop table if exists $schema.sync_data_status CASCADE;
+          create table $schema.sync_data_status
          (
-            "dataId" bigint REFERENCES dbsync.sync_data(id) ON UPDATE CASCADE ON DELETE CASCADE,
+            "dataId" bigint REFERENCES $schema.sync_data(id) ON UPDATE CASCADE ON DELETE CASCADE,
             "status" varchar(10),
             "message" text,
+            "depId" bigint,
+            "retry" int default 0,
             "createTime" TIMESTAMP not null default CURRENT_TIMESTAMP
          );
-         create index on dbsync.sync_data_status("dataId","status");
+         create index on $schema.sync_data_status("dataId","status");
+        """
+      jdbcTemplate.execute(sql)
+      logger.info("System table {}.{}[{}] updated", schema, table, dbName)
+    }
+    table = "sync_data_blocked"
+    if (tableExists(jdbcTemplate, schema, table)) {
+      logger.info("System table {}.{}[{}] already exists", schema, table, dbName)
+    } else {
+      logger.info("System table {}.{}[{}] not exists, rebuild it", schema, table, dbName)
+      val sql =
+        s"""
+          drop table if exists $schema.sync_data_blocked CASCADE;
+          create table $schema.sync_data_blocked
+         (
+            "dataId" bigint REFERENCES $schema.sync_data(id) ON UPDATE CASCADE ON DELETE CASCADE,
+            "hash" bigint not null,
+            "partition" bigint,
+            "blockedBy" bigint ,
+            "createTime" TIMESTAMP not null default CURRENT_TIMESTAMP
+         );
+         create index on $schema.sync_data_blocked("dataId","hash");
         """
       jdbcTemplate.execute(sql)
       logger.info("System table {}.{}[{}] updated", schema, table, dbName)
@@ -268,9 +295,9 @@ class PgOperation extends DbOperation {
     } else {
       logger.info("System table {}.{}[{}] not exists, rebuild it", schema, table, dbName)
       val sql =
-        """
-          drop table if exists dbsync.sync_trigger_version CASCADE ;
-          create table dbsync.sync_trigger_version
+        s"""
+          drop table if exists $schema.sync_trigger_version CASCADE ;
+          create table $schema.sync_trigger_version
          (
             "schema" varchar(512),
             "table" varchar(512),

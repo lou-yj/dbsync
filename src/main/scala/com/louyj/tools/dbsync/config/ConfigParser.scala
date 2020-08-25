@@ -86,10 +86,12 @@ class ConfigParser(stream: InputStream) {
 
   def validateSysConfig(sysConfig: SysConfig) = {
     if (sysConfig.batch == 0) sysConfig.batch = 10000
-    if (sysConfig.partition == 0) sysConfig.partition = 10
+    if (sysConfig.partition == 0) sysConfig.partition = 100
     if (sysConfig.maxPollWait == 0) sysConfig.maxPollWait = 60000
     if (sysConfig.cleanInterval == 0) sysConfig.cleanInterval = 3600000
     if (sysConfig.dataKeepHours == 0) sysConfig.dataKeepHours = 24
+    if (sysConfig.maxRetry == 0) sysConfig.maxRetry = Int.MaxValue
+    if (sysConfig.retryInterval == 0) sysConfig.retryInterval = 1000
     sysConfig
   }
 

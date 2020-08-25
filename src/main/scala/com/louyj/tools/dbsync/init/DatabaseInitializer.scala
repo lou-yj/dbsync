@@ -1,7 +1,7 @@
 package com.louyj.tools.dbsync.init
 
 import com.louyj.tools.dbsync.DatasourcePools
-import com.louyj.tools.dbsync.config.{DatabaseConfig, DbContext}
+import com.louyj.tools.dbsync.config.DatabaseConfig
 import com.louyj.tools.dbsync.dbopt.DbOperationRegister
 import org.slf4j.LoggerFactory
 

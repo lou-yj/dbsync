@@ -1,7 +1,8 @@
 package com.louyj.tools.dbsync.init
 
 import com.louyj.tools.dbsync.DatasourcePools
-import com.louyj.tools.dbsync.config.{DbContext, SyncConfig}
+import com.louyj.tools.dbsync.config.{DatabaseConfig, SyncConfig}
+import com.louyj.tools.dbsync.dbopt.DbOperationRegister.dbOpts
 import org.slf4j.LoggerFactory
 
 /**
@@ -11,21 +12,23 @@ import org.slf4j.LoggerFactory
  * @author Louyj<br/>
  */
 
-class TriggerInitializer(dbContext: DbContext, dsPools: DatasourcePools, syncConfigs: List[SyncConfig], sysSchema: String) {
+class TriggerInitializer(dbConfig: DatabaseConfig,
+                         dsPools: DatasourcePools,
+                         syncConfigs: List[SyncConfig], sysSchema: String) {
 
   val logger = LoggerFactory.getLogger(getClass)
 
-  logger.info("Start check trigger status")
-  syncConfigs.filter(_.sourceDb == dbContext.dbConfig.name).foreach(buildTrigger)
-  logger.info("Finish check trigger status")
+  logger.info(s"Start check trigger status for ${dbConfig.name}")
+  syncConfigs.filter(_.sourceDb == dbConfig.name).foreach(buildTrigger)
+  logger.info(s"Finish check trigger status for ${dbConfig.name}")
 
   def buildTrigger(syncConfig: SyncConfig) = {
     val dbName = syncConfig.sourceDb
-    val dbOpt = dbContext.dbOpts(dbContext.dbConfig.`type`)
-    val jdbcTemplate = dsPools.jdbcTemplate(dbName)
-    dbOpt.buildInsertTrigger(dbName, sysSchema, jdbcTemplate, syncConfig)
-    dbOpt.buildUpdateTrigger(dbName, sysSchema, jdbcTemplate, syncConfig)
-    dbOpt.buildDeleteTrigger(dbName, sysSchema, jdbcTemplate, syncConfig)
+    val dbOpt = dbOpts(dbConfig.`type`)
+    val jdbc = dsPools.jdbcTemplate(dbName)
+    dbOpt.buildInsertTrigger(dbName, sysSchema, jdbc, syncConfig)
+    dbOpt.buildUpdateTrigger(dbName, sysSchema, jdbc, syncConfig)
+    dbOpt.buildDeleteTrigger(dbName, sysSchema, jdbc, syncConfig)
   }
 
 }
