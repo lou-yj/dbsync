@@ -1,7 +1,7 @@
 package com.louyj.tools.dbsync.dbopt
 
-import com.louyj.tools.dbsync.config.{DatabaseConfig, SyncConfig}
-import com.louyj.tools.dbsync.sync.{SyncData, SyncDataModel}
+import com.louyj.tools.dbsync.config.{DatabaseConfig, SyncConfig, SysConfig}
+import com.louyj.tools.dbsync.sync.{BlockedData, SyncData, SyncDataModel}
 import org.springframework.jdbc.core.JdbcTemplate
 
 import scala.collection.mutable.ListBuffer
@@ -35,6 +35,16 @@ trait DbOperation {
                     sysSchema: String): Unit
 
   def cleanSysTable(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, keepHours: Int): Int
+
+  def cleanBlockedStatus(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, sysConfig: SysConfig): Int
+
+  def markBlocked(schema: String, jdbcTemplate: JdbcTemplate, data: BlockedData, partition: Int): Int
+
+  def tableExists(jdbcTemplate: JdbcTemplate,
+                  schema: String, table: String): Boolean
+
+  def uniqueIndexExists(jdbcTemplate: JdbcTemplate,
+                        schema: String, table: String, indexColumns: String): Boolean
 }
 
 

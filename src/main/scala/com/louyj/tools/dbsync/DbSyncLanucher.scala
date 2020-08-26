@@ -3,11 +3,9 @@ package com.louyj.tools.dbsync
 import java.io.FileInputStream
 
 import com.louyj.tools.dbsync.config.ConfigParser
-import com.louyj.tools.dbsync.dbopt.DbOperationRegister
-import com.louyj.tools.dbsync.dbopt.DbOperationRegister.dbOpts
 import com.louyj.tools.dbsync.init.{DatabaseInitializer, TriggerInitializer}
-import com.louyj.tools.dbsync.job.CleanWorker
-import com.louyj.tools.dbsync.sync.{DataPoller, DataSyncer, QueueManager}
+import com.louyj.tools.dbsync.job.{CleanWorker, JobScheduler}
+import com.louyj.tools.dbsync.sync.{DataPoller, DataSyncer, QueueManager, StateManger}
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ListBuffer
@@ -29,21 +27,25 @@ object DbSyncLanucher {
     val configParser = new ConfigParser(stream)
     val dsPools = new DatasourcePools(configParser.databaseConfig)
     val sysConfig = configParser.sysConfig
-    val syncConfigs = configParser.syncConfigMap
+    val syncConfigsMap = configParser.syncConfigMap
+    val syncConfigs = configParser.syncConfig
     val dbConfigs = configParser.databaseConfig
     val dbconfigsMap = configParser.databaseConfigMap
 
     new DatabaseInitializer(dsPools, dbConfigs)
     new CleanWorker(dsPools, sysConfig, dbConfigs)
-    val queueManager = new QueueManager(sysConfig.partition)
+
+    val stateManager = new StateManger(sysConfig, dbConfigs, dsPools)
+    val queueManager = new QueueManager(sysConfig.partition, stateManager)
     new DataSyncer(dbconfigsMap, queueManager, dsPools)
 
     val threads = new ListBuffer[Thread]
     dbConfigs.foreach(dbConfig => {
       val jdbc = dsPools.jdbcTemplate(dbConfig.name)
-      new TriggerInitializer(dbConfig, dsPools, configParser.syncConfig, dbConfig.sysSchema)
-      threads += new DataPoller(sysConfig, dbConfig, jdbc, queueManager, syncConfigs)
+      new TriggerInitializer(dbConfig, dsPools, syncConfigs)
+      threads += new DataPoller(sysConfig, dbConfig, jdbc, queueManager, syncConfigsMap)
     })
+    new JobScheduler(dsPools, sysConfig, dbConfigs, syncConfigs)
     logger.info("Application lanuched")
     threads.foreach(_.join())
 

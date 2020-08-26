@@ -34,7 +34,7 @@ case class BatchData(sourceDb: String, targetDb: String, partition: Int, var ite
 
 case class AckData(dbName: String, ids: List[Long], status: String, message: String)
 
-case class ErrorBatch(sourceDb: String, targetDb: String, preTable: String, args: List[Array[AnyRef]],
+case class ErrorBatch(sourceDb: String, targetDb: String, schema: String, table: String, sql: String, args: List[Array[AnyRef]],
                       ids: List[Long], hashs: List[Long], reason: String)
 
-case class BlockedData(sourceDb: String, hash: Long, ids: Set[Long])
+case class BlockedData(blockedBy: Set[Long], data: BatchData)

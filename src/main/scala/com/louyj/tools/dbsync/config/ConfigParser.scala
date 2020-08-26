@@ -7,9 +7,9 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility
 import com.fasterxml.jackson.annotation.PropertyAccessor
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import org.apache.commons.lang3.StringUtils
 import org.apache.commons.lang3.StringUtils.isBlank
 import org.yaml.snakeyaml.Yaml
+
 import scala.collection.JavaConverters._
 
 /**
@@ -92,6 +92,9 @@ class ConfigParser(stream: InputStream) {
     if (sysConfig.dataKeepHours == 0) sysConfig.dataKeepHours = 24
     if (sysConfig.maxRetry == 0) sysConfig.maxRetry = Int.MaxValue
     if (sysConfig.retryInterval == 0) sysConfig.retryInterval = 1000
+    if (sysConfig.syncTriggerInterval == 0) sysConfig.syncTriggerInterval = 1800000
+    if (isBlank(sysConfig.workDirectory)) sysConfig.workDirectory = "."
+    if (isBlank(sysConfig.stateDirectory)) sysConfig.stateDirectory = "status"
     sysConfig
   }
 

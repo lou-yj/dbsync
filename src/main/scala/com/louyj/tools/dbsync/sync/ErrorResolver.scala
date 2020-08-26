@@ -1,8 +1,10 @@
 package com.louyj.tools.dbsync.sync
 
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+
 import com.louyj.tools.dbsync.DatasourcePools
-import com.louyj.tools.dbsync.DbSyncLanucher.logger
-import com.louyj.tools.dbsync.dbopt.DbOperationRegister.dbOpts
+import com.louyj.tools.dbsync.config.{DatabaseConfig, SysConfig}
 import org.slf4j.LoggerFactory
 
 /**
@@ -12,18 +14,52 @@ import org.slf4j.LoggerFactory
  * @author Louyj<br/>
  */
 
-class ErrorResolver(queueManager: QueueManager, dsPools: DatasourcePools) extends Thread {
+class ErrorResolver(sysConfig: SysConfig, queueManager: QueueManager, dsPools: DatasourcePools,
+                    dbConfigs: Map[String, DatabaseConfig]) extends Thread {
 
   val logger = LoggerFactory.getLogger(getClass)
 
   setName("error-resolver")
+  start()
 
   override def run(): Unit = {
     while (!isInterrupted) {
       val errorBatch = queueManager.takeError
-      logger.warn(s"Receive error batch sync from ${errorBatch.sourceDb} to ${errorBatch.targetDb} size ${errorBatch.ids.size}")
+
 
     }
+  }
+
+  def loopRetry(errorBatch: ErrorBatch): Unit = {
+    var retry = new AtomicInteger(sysConfig.maxRetry)
+    val sourceDb = errorBatch.sourceDb
+    val targetDb = errorBatch.targetDb
+    logger.warn(s"Receive ${errorBatch.ids.size} error data, table ${errorBatch.schema}.${errorBatch.table}[$sourceDb->$targetDb], ids ${errorBatch.ids.mkString(",")} ")
+    val srcJdbc = dsPools.jdbcTemplate(sourceDb)
+    val tarJdbc = dsPools.jdbcTemplate(targetDb)
+    (errorBatch.args zip errorBatch.ids zip errorBatch.hashs).foreach(triple => {
+      val tuple = triple._1
+      val args = tuple._1
+      val id = tuple._2
+      val hash = triple._2
+      logger.info(s"Retry data ${errorBatch.schema}.${errorBatch.table}[$sourceDb->$targetDb] id $id, will retry ${sysConfig.maxRetry} times interval ${sysConfig.retryInterval}ms")
+      while (retry.decrementAndGet() > 0) {
+        try {
+          tarJdbc.update(errorBatch.sql, args: _*)
+          logger.info(s"Successfully retry for ${errorBatch.schema}.${errorBatch.table}[$sourceDb->$targetDb] id $id")
+          queueManager.resolvedError(hash, id)
+          retry.set(0)
+        } catch {
+          case e: InterruptedException => throw e
+          case e: Exception => TimeUnit.MILLISECONDS.sleep(sysConfig.retryInterval)
+        }
+      }
+    })
+
+  }
+
+  def retry() = {
+
   }
 
 }

@@ -1,10 +1,5 @@
 package com.louyj.tools.dbsync.config
 
-import com.louyj.tools.dbsync.DatasourcePools
-import com.louyj.tools.dbsync.dbopt.DbOperation
-import com.louyj.tools.dbsync.sync.QueueManager
-import org.springframework.jdbc.core.JdbcTemplate
-
 /**
  *
  * Create at 2020/8/23 15:44<br/>
@@ -15,7 +10,8 @@ import org.springframework.jdbc.core.JdbcTemplate
 case class DatabaseConfig(name: String, sysSchema: String, `type`: String,
                           driver: String, url: String,
                           user: String, password: String,
-                          var maxPoolSize: Int = 15)
+                          var maxPoolSize: Int = 15,
+                          var createIndex: Boolean = true)
 
 
 case class SyncConfig(sourceDb: String, targetDb: String,
@@ -24,11 +20,15 @@ case class SyncConfig(sourceDb: String, targetDb: String,
                       var targetSchema: String, var targetTable: String,
                       var insertCondition: String, var updateCondition: String, var deleteCondition: String)
 
-case class SysConfig(var batch: Int = 10000, var partition: Int = 10,
+case class SysConfig(var batch: Int = 10000,
+                     var partition: Int = 10,
                      var maxPollWait: Long = 60000,
                      var cleanInterval: Long = 3600000,
+                     var syncTriggerInterval: Long = 1800000,
                      var dataKeepHours: Int = 24,
                      var maxRetry: Int = Int.MaxValue,
-                     var retryInterval: Int = 1000)
+                     var retryInterval: Int = 1000,
+                     var workDirectory: String = ".",
+                     var stateDirectory: String = "state")
 
 

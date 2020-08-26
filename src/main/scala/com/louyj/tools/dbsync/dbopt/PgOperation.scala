@@ -3,9 +3,8 @@ package com.louyj.tools.dbsync.dbopt
 import java.nio.charset.StandardCharsets
 
 import com.google.common.hash.Hashing
-import com.louyj.tools.dbsync.config.{DatabaseConfig, SyncConfig}
-import com.louyj.tools.dbsync.sync.{SyncData, SyncDataModel}
-import org.checkerframework.checker.units.qual.s
+import com.louyj.tools.dbsync.config.{DatabaseConfig, SyncConfig, SysConfig}
+import com.louyj.tools.dbsync.sync.{BlockedData, SyncData, SyncDataModel}
 import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.{BeanPropertyRowMapper, JdbcTemplate}
 
@@ -52,13 +51,13 @@ class PgOperation extends DbOperation {
   override def batchDeleteSql(syncData: SyncData, whereBuffer: ListBuffer[String]): String = {
     s"""
             delete from "${syncData.schema}"."${syncData.table}"
-            where ${whereBuffer.mkString(",")}
+            where ${whereBuffer.mkString(" and ")}
           """
   }
 
   override def batchAckSql(sysSchema: String): String = {
     s"""
-          insert into ${sysSchema}.sync_data_status
+          insert into $sysSchema.sync_data_status
           ("dataId",status,message) values (?,?,?)
           on conflict ("dataId") do update set
           status=EXCLUDED.status,message=EXCLUDED.message;
@@ -69,7 +68,7 @@ class PgOperation extends DbOperation {
     val content =
       """
         DROP TRIGGER IF EXISTS {{insertTrigger}} ON {{sourceSchema}}.{{sourceTable}};
-        DROP FUNCTION IF EXISTS {{sourceSchema}}.{{insertFunction}};
+        DROP FUNCTION IF EXISTS {{sourceSchema}}.{{insertFunction}}() CASCADE;
         CREATE OR REPLACE FUNCTION {{sourceSchema}}.{{insertFunction}}()
          RETURNS trigger
          LANGUAGE plpgsql
@@ -121,7 +120,7 @@ class PgOperation extends DbOperation {
     val content =
       """
          DROP TRIGGER IF EXISTS {{updateTrigger}} ON {{sourceSchema}}.{{sourceTable}};
-         DROP FUNCTION IF EXISTS {{sourceSchema}}.{{updateFunction}};
+         DROP FUNCTION IF EXISTS {{sourceSchema}}.{{updateFunction}}() CASCADE;
          CREATE OR REPLACE FUNCTION {{sourceSchema}}.{{updateFunction}}()
          RETURNS trigger
          LANGUAGE plpgsql
@@ -172,7 +171,7 @@ class PgOperation extends DbOperation {
     val content =
       """
         DROP TRIGGER IF EXISTS {{deleteTrigger}} ON {{sourceSchema}}.{{sourceTable}};
-        DROP FUNCTION IF EXISTS {{sourceSchema}}.{{deleteFunction}};
+        DROP FUNCTION IF EXISTS {{sourceSchema}}.{{deleteFunction}}() CASCADE;
         CREATE OR REPLACE FUNCTION {{sourceSchema}}.{{deleteFunction}}()
         RETURNS trigger
         LANGUAGE plpgsql
@@ -221,6 +220,13 @@ class PgOperation extends DbOperation {
 
   override def buildSysTable(dbName: String, jdbcTemplate: JdbcTemplate, sysSchema: String): Unit = {
     val schema = sysSchema
+    if (schemaExists(jdbcTemplate, schema)) {
+      logger.info(s"System schema $schema already exists")
+    } else {
+      logger.info(s"System schema $schema not exists, rebuild it")
+      jdbcTemplate.execute(s"create schema $schema")
+      logger.info(s"System schema $schema updated")
+    }
     var table = "sync_data"
     if (tableExists(jdbcTemplate, schema, table)) {
       logger.info("System table {}.{}[{}] already exists", schema, table, dbName)
@@ -264,6 +270,7 @@ class PgOperation extends DbOperation {
             "createTime" TIMESTAMP not null default CURRENT_TIMESTAMP
          );
          create index on $schema.sync_data_status("dataId","status");
+         create unique index on $schema.sync_data_status("dataId");
         """
       jdbcTemplate.execute(sql)
       logger.info("System table {}.{}[{}] updated", schema, table, dbName)
@@ -285,6 +292,7 @@ class PgOperation extends DbOperation {
             "createTime" TIMESTAMP not null default CURRENT_TIMESTAMP
          );
          create index on $schema.sync_data_blocked("dataId","hash");
+         create unique index on $schema.sync_data_blocked("dataId");
         """
       jdbcTemplate.execute(sql)
       logger.info("System table {}.{}[{}] updated", schema, table, dbName)
@@ -323,6 +331,28 @@ class PgOperation extends DbOperation {
     jdbcTemplate.update(sql)
   }
 
+  override def cleanBlockedStatus(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, sysConfig: SysConfig) = {
+    val sql =
+      s"""
+       delete from ${dbConfig.sysSchema}.sync_data_status where status='BLK'
+       or (status='ERR' and retry < ${sysConfig.maxRetry});
+     """
+    jdbcTemplate.update(sql)
+  }
+
+  override def markBlocked(schema: String, jdbcTemplate: JdbcTemplate, blockedData: BlockedData, partition: Int): Int = {
+    val sql =
+      s"""
+         insert into $schema.sync_data_blocked
+         ("dataId","hash","partition","blockedBy")
+         values
+         (?,?,?,?)
+         on conflict("dataId") do nothing
+       """
+    val data = blockedData.data.items.head
+    jdbcTemplate.update(sql, Array(data.id, data.hash, partition, blockedData.blockedBy.mkString(",")))
+  }
+
   def triggerExists(jdbcTemplate: JdbcTemplate,
                     sysSchema: String,
                     schema: String, table: String, trigger: String, version: String) = {
@@ -355,8 +385,8 @@ class PgOperation extends DbOperation {
   }
 
 
-  def tableExists(jdbcTemplate: JdbcTemplate,
-                  schema: String, table: String) = {
+  override def tableExists(jdbcTemplate: JdbcTemplate,
+                           schema: String, table: String) = {
     val sql =
       s"""
         select count(1) from pg_tables where schemaname =? and tablename =?
@@ -364,5 +394,46 @@ class PgOperation extends DbOperation {
     val num = jdbcTemplate.queryForObject(sql, Array[AnyRef](schema, table), classOf[Long])
     num > 0
   }
+
+  def schemaExists(jdbcTemplate: JdbcTemplate,
+                   schema: String) = {
+    val sql =
+      s"""
+         select count(1) from pg_namespace where nspname =?
+       """
+
+    val num = jdbcTemplate.queryForObject(sql, Array[AnyRef](schema), classOf[Long])
+    num > 0
+  }
+
+  override def uniqueIndexExists(jdbcTemplate: JdbcTemplate,
+                                 schema: String, table: String, indexColumns: String) = {
+    val sql =
+      s"""
+        select count(1) from
+        (
+        select ix.indexrelid as index_id, string_agg(a.attname,',' order by a.attname asc) as "columns"
+        from pg_catalog.pg_class t
+        join pg_catalog.pg_attribute a on t.oid=a.attrelid
+        join pg_catalog.pg_index ix on t.oid=ix.indrelid
+        join pg_catalog.pg_class i on a.attnum = any(ix.indkey) and i.oid=ix.indexrelid
+        join pg_catalog.pg_namespace n on n.oid=t.relnamespace
+        where t.relkind = 'r' and  n.nspname=? and t.relname=?
+        group by ix.indexrelid
+        )t where "columns"=?
+    """
+    val num = jdbcTemplate.queryForObject(sql, Array[AnyRef](schema, table, indexColumns), classOf[Long])
+    num > 0
+  }
+
+  def createUniqueIndex(jdbcTemplate: JdbcTemplate,
+                        schema: String, table: String, indexColumns: String): Unit = {
+    val sql =
+      s"""
+     create unique index on ${schema}.${table}($indexColumns)
+   """
+    jdbcTemplate.execute(sql)
+  }
+
 
 }

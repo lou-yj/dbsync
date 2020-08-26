@@ -39,53 +39,69 @@ class SyncWorker(partition: Int,
     logger.info(s"Start sync worker $getName")
     while (!isInterrupted) {
       try {
-        val batchData = queueManager.take(partition)
-        val targetDb = batchData.targetDb
-        val sourceDb = batchData.sourceDb
-        val tarJdbc = dsPools.jdbcTemplate(targetDb)
-        val srcJdbc = dsPools.jdbcTemplate(sourceDb)
-        var preSchema: String = null
-        var preTable: String = null
-        var preSql: String = null
-        val preArgs = new ListBuffer[Array[AnyRef]]
-        val preIds = new ListBuffer[Long]
-        val preHashs = new ListBuffer[Long]
-        val targetDbConfig = dbConfigs(targetDb)
-        val sourceDbConfig = dbConfigs(sourceDb)
-        val dbOpt = dbOpts(targetDbConfig.`type`)
-        val sourceSysSchema = sourceDbConfig.sysSchema
-        batchData.items.foreach(syncData => {
-          val sqlTuple = toSql(dbOpt, syncData)
-          if (preSql == sqlTuple._1) {
-            preArgs += sqlTuple._2
-            preIds += syncData.id
-            preHashs += syncData.hash
-          } else {
-            exec(sourceDb, targetDb, sourceSysSchema,
-              dbOpt, srcJdbc, tarJdbc,
-              preSchema, preTable, preSql, preArgs.toList, preIds.toList, preHashs.toList)
-            preSchema = syncData.schema
-            preTable = syncData.table
-            preSql = sqlTuple._1
-            preArgs.clear()
-            preArgs += sqlTuple._2
-            preIds.clear()
-            preIds += syncData.id
-            preHashs.clear()
-            preHashs += syncData.hash
-          }
-        })
-        if (preArgs.nonEmpty) {
-          exec(sourceDb, targetDb, sourceSysSchema,
-            dbOpt, srcJdbc, tarJdbc,
-            preSchema, preTable, preSql, preArgs.toList, preIds.toList, preHashs.toList)
-        }
+        syncBlocked()
+        syncData(queueManager.take(partition))
       } catch {
         case e: InterruptedException => throw e
         case e: Exception =>
           logger.error("Sync failed", e)
           TimeUnit.SECONDS.sleep(1)
       }
+    }
+  }
+
+  def syncBlocked() = {
+    val blockedDatas = queueManager.pollBlocked(partition)
+    if (blockedDatas != null) {
+      blockedDatas.foreach(blockedData => {
+        val data = blockedData.data
+        val head = data.items.head
+        logger.info(s"Resume blocked data for table ${head.schema}.${head.table}[${data.sourceDb}->${data.targetDb}] id ${head.id}")
+        syncData(data)
+      })
+    }
+  }
+
+  def syncData(batchData: BatchData) = {
+    val targetDb = batchData.targetDb
+    val sourceDb = batchData.sourceDb
+    val tarJdbc = dsPools.jdbcTemplate(targetDb)
+    val srcJdbc = dsPools.jdbcTemplate(sourceDb)
+    var preSchema: String = null
+    var preTable: String = null
+    var preSql: String = null
+    val preArgs = new ListBuffer[Array[AnyRef]]
+    val preIds = new ListBuffer[Long]
+    val preHashs = new ListBuffer[Long]
+    val targetDbConfig = dbConfigs(targetDb)
+    val sourceDbConfig = dbConfigs(sourceDb)
+    val dbOpt = dbOpts(targetDbConfig.`type`)
+    val sourceSysSchema = sourceDbConfig.sysSchema
+    batchData.items.foreach(syncData => {
+      val sqlTuple = toSql(dbOpt, syncData)
+      if (preSql == sqlTuple._1) {
+        preArgs += sqlTuple._2
+        preIds += syncData.id
+        preHashs += syncData.hash
+      } else {
+        exec(sourceDb, targetDb, sourceSysSchema,
+          dbOpt, srcJdbc, tarJdbc,
+          preSchema, preTable, preSql, preArgs.toList, preIds.toList, preHashs.toList)
+        preSchema = syncData.schema
+        preTable = syncData.table
+        preSql = sqlTuple._1
+        preArgs.clear()
+        preArgs += sqlTuple._2
+        preIds.clear()
+        preIds += syncData.id
+        preHashs.clear()
+        preHashs += syncData.hash
+      }
+    })
+    if (preArgs.nonEmpty) {
+      exec(sourceDb, targetDb, sourceSysSchema,
+        dbOpt, srcJdbc, tarJdbc,
+        preSchema, preTable, preSql, preArgs.toList, preIds.toList, preHashs.toList)
     }
   }
 
@@ -130,26 +146,27 @@ class SyncWorker(partition: Int,
       tarJdbc.batchUpdate(sql, args.asJava)
       val ackSql = dbOpts.batchAckSql(sourceSysSchema)
       srcJdbc.batchUpdate(ackSql, ackArgs(ids, "OK", "").asJava)
-      logger.info(s"Sync ${args.size} data for table $schema.$table[$targetDb]")
+      logger.info(s"Sync ${args.size} data for table $schema.$table[$sourceDb->$targetDb]")
     } catch {
       case e: InterruptedException => throw e
       case e: Exception =>
         val reason = s"${e.getClass.getSimpleName}-${e.getMessage}"
         fallbackExec(sourceDb, targetDb, sourceSysSchema,
-          dbOpts, srcJdbc, table, args, ids, hashs, reason)
+          dbOpts, srcJdbc, schema, table, sql, args, ids, hashs, reason)
     }
   }
 
   def fallbackExec(sourceDb: String, targetDb: String,
                    sourceSysSchema: String,
                    dbOpts: DbOperation, tarJdbc: JdbcTemplate,
-                   preTable: String, args: List[Array[AnyRef]], ids: List[Long], hashs: List[Long], reason: String): Unit = {
-    logger.warn(s"Failed sync ${args.size} data for table $preTable, reason $reason")
+                   schema: String, table: String,
+                   sql: String, args: List[Array[AnyRef]], ids: List[Long], hashs: List[Long], reason: String): Unit = {
+    logger.warn(s"Failed sync ${args.size} data for table $table, reason $reason")
     val ackSql = dbOpts.batchAckSql(sourceSysSchema)
     import scala.collection.JavaConverters._
     tarJdbc.batchUpdate(ackSql, ackArgs(ids, "ERR", reason).asJava)
 
-    val errorBatch = ErrorBatch(sourceDb, targetDb, preTable, args, ids, hashs, reason)
+    val errorBatch = ErrorBatch(sourceDb, targetDb, schema, table, sql, args, ids, hashs, reason)
     queueManager.putError(errorBatch)
   }
 

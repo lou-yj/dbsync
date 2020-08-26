@@ -1,6 +1,6 @@
 package com.louyj.tools.dbsync.job
 
-import java.util.{Timer, TimerTask}
+import java.util.TimerTask
 
 import com.louyj.tools.dbsync.DatasourcePools
 import com.louyj.tools.dbsync.config.{DatabaseConfig, SysConfig}
@@ -20,10 +20,6 @@ class CleanWorker(dsPools: DatasourcePools,
 
   val logger = LoggerFactory.getLogger(getClass)
 
-  val timer = new Timer("clean-worker", true);
-  timer.schedule(this, sysConfig.cleanInterval, sysConfig.cleanInterval)
-
-  logger.info(s"Clean worker lanuched, scheduled at fixed rate of ${sysConfig.cleanInterval}ms")
 
   override def run(): Unit = {
     def cleanFun = (dbConfig: DatabaseConfig) => {
