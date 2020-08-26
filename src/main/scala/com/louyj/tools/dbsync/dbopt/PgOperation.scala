@@ -61,7 +61,7 @@ class PgOperation extends DbOperation {
           insert into $sysSchema.sync_data_status
           ("dataId",status,message) values (?,?,?)
           on conflict ("dataId") do update set
-          status=EXCLUDED.status,message=EXCLUDED.message,retry=retry+1;
+          status=EXCLUDED.status,message=EXCLUDED.message,retry=$sysSchema.sync_data_status.retry+1;
     """
     jdbcTemplate.batchUpdate(ackSql, ackArgs(ids, status, message).asJava)
   }

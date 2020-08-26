@@ -52,20 +52,22 @@ class ErrorResolver(sysConfig: SysConfig, queueManager: QueueManager, dsPools: D
       val id = tuple._2
       val hash = triple._2
       val partition = math.abs(hash % sysConfig.partition).intValue()
+      val dbConfig = dbConfigs(sourceDb)
+      val dbOpt = dbOpts(dbConfig.`type`);
       logger.info(s"Retry data ${errorBatch.schema}.${errorBatch.table}[$sourceDb->$targetDb] id $id, will retry ${sysConfig.maxRetry} times interval ${sysConfig.retryInterval}ms")
       while (retry.decrementAndGet() > 0) {
         try {
           tarJdbc.update(errorBatch.sql, args: _*)
-          val dbConfig = dbConfigs(sourceDb)
-
-          val ackSql = dbOpts(sourceDb).batchAck(srcJdbc, dbConfig.sysSchema, List(id), "OK", s"success with ${sysConfig.maxRetry - retry.get()} retry")
+          val ackSql = dbOpt.batchAck(srcJdbc, dbConfig.sysSchema, List(id), "OK", s"success with ${sysConfig.maxRetry - retry.get()} retry")
           logger.info(s"Successfully retry for ${errorBatch.schema}.${errorBatch.table}[$sourceDb->$targetDb] id $id")
           queueManager.resolvedError(partition, hash, id)
           retry.set(0)
         } catch {
           case e: InterruptedException => throw e
           case e: Exception => {
-            logger.warn(s"Retry failed ${errorBatch.schema}.${errorBatch.table}[$sourceDb->$targetDb] id $id, reason ${e.getClass.getSimpleName}-${e.getMessage}")
+            val message = s"Retry failed ${errorBatch.schema}.${errorBatch.table}[$sourceDb->$targetDb] id $id, reason ${e.getClass.getSimpleName}-${e.getMessage}"
+            logger.warn(message)
+            dbOpt.batchAck(srcJdbc, dbConfig.sysSchema, List(id), "ERR", message)
             TimeUnit.MILLISECONDS.sleep(sysConfig.retryInterval)
           }
         }
