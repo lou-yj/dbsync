@@ -22,35 +22,40 @@ class QueueManager(val partition: Int, state: StateManger) {
   val unBlockedEventQueues = (for (i <- 0 until partition) yield i -> new ArrayBlockingQueue[Long](100)).toMap
 
 
-  def queue(partition: Int) = queues.get(partition)
+  def queue(partition: Int) = queues(partition)
 
-  def put(partition: Int, data: BatchData) = queue(partition).get.put(data)
+  def put(partition: Int, data: BatchData) = queue(partition).put(data)
 
-  def take(partition: Int) = this.synchronized {
-    val batchData = queue(partition).get.take()
-    var blocked = false
-    batchData.items.foreach(d => if (state.isBlocked(d.hash)) blocked = true)
-    if (blocked) {
-      val blockedDatas = new ListBuffer[BlockedData]
-      val unblockedDatas = new ListBuffer[SyncData]
-      batchData.items.foreach(d => {
-        val ids = state.blockedIds(d.hash)
-        if (ids.isEmpty) {
-          unblockedDatas += d
-        } else {
-          val bData = BatchData(batchData.sourceDb, batchData.targetDb, batchData.partition, ListBuffer(d))
-          val blockedData = BlockedData(ids, bData)
-          blockedDatas += blockedData
-        }
-      })
-      batchData.items = unblockedDatas
-      blockedDatas.foreach(state.block)
+  def take(partition: Int): BatchData = {
+    queue(partition).synchronized {
+      val batchData = queue(partition).poll(60, TimeUnit.SECONDS)
+      if (batchData == null) return null
+      var blocked = false
+      batchData.items.foreach(d => if (state.isBlocked(d.hash)) blocked = true)
+      if (blocked) {
+        val blockedDatas = new ListBuffer[BlockedData]
+        val unblockedDatas = new ListBuffer[SyncData]
+        batchData.items.foreach(d => {
+          val ids = state.blockedIds(d.hash)
+          if (ids.isEmpty) {
+            unblockedDatas += d
+          } else {
+            val bData = BatchData(batchData.sourceDb, batchData.targetDb, batchData.partition, ListBuffer(d))
+            val blockedData = BlockedData(ids, bData)
+            blockedDatas += blockedData
+          }
+        })
+        batchData.items = unblockedDatas
+        blockedDatas.foreach(state.block)
+      }
+      batchData
     }
-    batchData
   }
 
-  def putError(errorBatch: ErrorBatch) = this.synchronized {
-    state.errorRetry(errorBatch)
+  def putError(partition: Int, errorBatch: ErrorBatch) = {
+    queue(partition).synchronized {
+      state.errorRetry(errorBatch)
+    }
   }
 
   def takeError: ErrorBatch = {
@@ -62,15 +67,16 @@ class QueueManager(val partition: Int, state: StateManger) {
     null
   }
 
-  def resolvedError(hash: Long, id: Long) = this.synchronized {
-    val ids = state.blockedIds(hash)
-    val nids = ids - id
-    state.updateBlocked(hash, nids)
-    if (nids.isEmpty) {
-      val partition = math.abs(hash % this.partition).intValue
-      unBlockedEventQueues(partition).put(hash)
-    } else {
-      logger.info(s"Hash slot $hash still blocked by $ids, throught $id is marked resolved")
+  def resolvedError(partition: Int, hash: Long, id: Long) = {
+    queue(partition).synchronized {
+      val ids = state.blockedIds(hash)
+      val nids = ids - id
+      state.updateBlocked(hash, nids)
+      if (nids.isEmpty) {
+        unBlockedEventQueues(partition).put(hash)
+      } else {
+        logger.info(s"Hash slot $hash still blocked by $ids, throught $id is marked resolved")
+      }
     }
   }
 

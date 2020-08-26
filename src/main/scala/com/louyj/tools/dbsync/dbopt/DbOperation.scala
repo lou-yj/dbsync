@@ -1,7 +1,7 @@
 package com.louyj.tools.dbsync.dbopt
 
 import com.louyj.tools.dbsync.config.{DatabaseConfig, SyncConfig, SysConfig}
-import com.louyj.tools.dbsync.sync.{BlockedData, SyncData, SyncDataModel}
+import com.louyj.tools.dbsync.sync.{SyncData, SyncDataModel}
 import org.springframework.jdbc.core.JdbcTemplate
 
 import scala.collection.mutable.ListBuffer
@@ -23,7 +23,6 @@ trait DbOperation {
 
   def batchDeleteSql(syncData: SyncData, whereBuffer: ListBuffer[String]): String
 
-  def batchAckSql(sysSchema: String): String
 
   def buildInsertTrigger(dbName: String, sysSchema: String, jdbcTemplate: JdbcTemplate, syncConfig: SyncConfig)
 
@@ -38,13 +37,14 @@ trait DbOperation {
 
   def cleanBlockedStatus(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, sysConfig: SysConfig): Int
 
-  def markBlocked(schema: String, jdbcTemplate: JdbcTemplate, data: BlockedData, partition: Int): Int
 
   def tableExists(jdbcTemplate: JdbcTemplate,
                   schema: String, table: String): Boolean
 
   def uniqueIndexExists(jdbcTemplate: JdbcTemplate,
                         schema: String, table: String, indexColumns: String): Boolean
+
+  def batchAck(jdbcTemplate: JdbcTemplate, sysSchema: String, ids: List[Long], status: String, message: String = ""): Array[Int]
 }
 
 

@@ -91,7 +91,7 @@ class ConfigParser(stream: InputStream) {
     if (sysConfig.cleanInterval == 0) sysConfig.cleanInterval = 3600000
     if (sysConfig.dataKeepHours == 0) sysConfig.dataKeepHours = 24
     if (sysConfig.maxRetry == 0) sysConfig.maxRetry = Int.MaxValue
-    if (sysConfig.retryInterval == 0) sysConfig.retryInterval = 1000
+    if (sysConfig.retryInterval == 0) sysConfig.retryInterval = 10000
     if (sysConfig.syncTriggerInterval == 0) sysConfig.syncTriggerInterval = 1800000
     if (isBlank(sysConfig.workDirectory)) sysConfig.workDirectory = "."
     if (isBlank(sysConfig.stateDirectory)) sysConfig.stateDirectory = "status"

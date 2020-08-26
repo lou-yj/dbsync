@@ -94,7 +94,7 @@ class DataPoller(sysConfig: SysConfig, dbConfig: DatabaseConfig,
     val data = objectMapper.readValue(model.data, classOf[Map[String, AnyRef]])
     val keyValues = (for (item <- keys) yield data.getOrElse(item, "")).mkString(":")
     val partitionKey = s"$schema:$table:$keyValues"
-    val hash = Hashing.murmur3_32().newHasher().putString(partitionKey, StandardCharsets.UTF_8).hash().asLong()
+    val hash = Hashing.murmur3_128().newHasher().putString(partitionKey, StandardCharsets.UTF_8).hash().asLong()
     val syncData = SyncData(hash, model.id, model.operation, schema, table, keys, data)
     val partition = math.abs(hash % sysConfig.partition).intValue
     var listBuffer = dataTable.get(targetDb, partition)

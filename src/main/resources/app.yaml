@@ -4,6 +4,7 @@ sys:
   maxPollWait: 5000
   cleanInterval: 60000
   syncTriggerInterval: 60000
+  retryInterval: 60000
   dataKeepHours: 24
   workDirectory: "d:/temp"
 

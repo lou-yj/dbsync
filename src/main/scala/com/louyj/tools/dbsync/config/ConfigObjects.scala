@@ -27,7 +27,7 @@ case class SysConfig(var batch: Int = 10000,
                      var syncTriggerInterval: Long = 1800000,
                      var dataKeepHours: Int = 24,
                      var maxRetry: Int = Int.MaxValue,
-                     var retryInterval: Int = 1000,
+                     var retryInterval: Int = 10000,
                      var workDirectory: String = ".",
                      var stateDirectory: String = "state")
 

@@ -4,7 +4,7 @@ import java.nio.charset.StandardCharsets
 
 import com.google.common.hash.Hashing
 import com.louyj.tools.dbsync.config.{DatabaseConfig, SyncConfig, SysConfig}
-import com.louyj.tools.dbsync.sync.{BlockedData, SyncData, SyncDataModel}
+import com.louyj.tools.dbsync.sync.{SyncData, SyncDataModel}
 import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.{BeanPropertyRowMapper, JdbcTemplate}
 
@@ -55,14 +55,17 @@ class PgOperation extends DbOperation {
           """
   }
 
-  override def batchAckSql(sysSchema: String): String = {
-    s"""
+  override def batchAck(jdbcTemplate: JdbcTemplate, sysSchema: String, ids: List[Long], status: String, message: String = "") = {
+    val ackSql =
+      s"""
           insert into $sysSchema.sync_data_status
           ("dataId",status,message) values (?,?,?)
           on conflict ("dataId") do update set
-          status=EXCLUDED.status,message=EXCLUDED.message;
+          status=EXCLUDED.status,message=EXCLUDED.message,retry=retry+1;
     """
+    jdbcTemplate.batchUpdate(ackSql, ackArgs(ids, status, message).asJava)
   }
+
 
   override def buildInsertTrigger(dbName: String, sysSchema: String, jdbcTemplate: JdbcTemplate, syncConfig: SyncConfig): Unit = {
     val content =
@@ -106,7 +109,7 @@ class PgOperation extends DbOperation {
       .replace("{{insertFunction}}", insertFunction)
     val hash = Hashing.murmur3_32().newHasher.putString(sql, StandardCharsets.UTF_8).hash().toString
     if (triggerExists(jdbcTemplate, sysSchema, syncConfig.sourceSchema, syncConfig.sourceTable, insertTrigger, hash)) {
-      logger.info("Insert trigger for table {}.{}[{}] already exists and matched", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
+      logger.debug("Insert trigger for table {}.{}[{}] already exists and matched", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
     } else {
       logger.info("Insert trigger for table {}.{}[{}] not matched, rebuild it", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
       jdbcTemplate.execute(sql)
@@ -158,7 +161,7 @@ class PgOperation extends DbOperation {
       .replace("{{updateFunction}}", updateFunction)
     val hash = Hashing.murmur3_32().newHasher.putString(sql, StandardCharsets.UTF_8).hash().toString
     if (triggerExists(jdbcTemplate, sysSchema, syncConfig.sourceSchema, syncConfig.sourceTable, updateTrigger, hash)) {
-      logger.info("Update trigger for table {}.{}[{}] already exists and matched", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
+      logger.debug("Update trigger for table {}.{}[{}] already exists and matched", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
     } else {
       logger.info("Update trigger for table {}.{}[{}] not matched, rebuild it", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
       jdbcTemplate.execute(sql)
@@ -209,7 +212,7 @@ class PgOperation extends DbOperation {
       .replace("{{deleteFunction}}", deleteFunction)
     val hash = Hashing.murmur3_32().newHasher.putString(sql, StandardCharsets.UTF_8).hash().toString
     if (triggerExists(jdbcTemplate, sysSchema, syncConfig.sourceSchema, syncConfig.sourceTable, deleteTrigger, hash)) {
-      logger.info("Delete trigger for table {}.{}[{}] already exists and matched", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
+      logger.debug("Delete trigger for table {}.{}[{}] already exists and matched", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
     } else {
       logger.info("Delete trigger for table {}.{}[{}] not matched, rebuild it", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
       jdbcTemplate.execute(sql)
@@ -265,34 +268,11 @@ class PgOperation extends DbOperation {
             "dataId" bigint REFERENCES $schema.sync_data(id) ON UPDATE CASCADE ON DELETE CASCADE,
             "status" varchar(10),
             "message" text,
-            "depId" bigint,
             "retry" int default 0,
             "createTime" TIMESTAMP not null default CURRENT_TIMESTAMP
          );
          create index on $schema.sync_data_status("dataId","status");
          create unique index on $schema.sync_data_status("dataId");
-        """
-      jdbcTemplate.execute(sql)
-      logger.info("System table {}.{}[{}] updated", schema, table, dbName)
-    }
-    table = "sync_data_blocked"
-    if (tableExists(jdbcTemplate, schema, table)) {
-      logger.info("System table {}.{}[{}] already exists", schema, table, dbName)
-    } else {
-      logger.info("System table {}.{}[{}] not exists, rebuild it", schema, table, dbName)
-      val sql =
-        s"""
-          drop table if exists $schema.sync_data_blocked CASCADE;
-          create table $schema.sync_data_blocked
-         (
-            "dataId" bigint REFERENCES $schema.sync_data(id) ON UPDATE CASCADE ON DELETE CASCADE,
-            "hash" bigint not null,
-            "partition" bigint,
-            "blockedBy" bigint ,
-            "createTime" TIMESTAMP not null default CURRENT_TIMESTAMP
-         );
-         create index on $schema.sync_data_blocked("dataId","hash");
-         create unique index on $schema.sync_data_blocked("dataId");
         """
       jdbcTemplate.execute(sql)
       logger.info("System table {}.{}[{}] updated", schema, table, dbName)
@@ -338,19 +318,6 @@ class PgOperation extends DbOperation {
        or (status='ERR' and retry < ${sysConfig.maxRetry});
      """
     jdbcTemplate.update(sql)
-  }
-
-  override def markBlocked(schema: String, jdbcTemplate: JdbcTemplate, blockedData: BlockedData, partition: Int): Int = {
-    val sql =
-      s"""
-         insert into $schema.sync_data_blocked
-         ("dataId","hash","partition","blockedBy")
-         values
-         (?,?,?,?)
-         on conflict("dataId") do nothing
-       """
-    val data = blockedData.data.items.head
-    jdbcTemplate.update(sql, Array(data.id, data.hash, partition, blockedData.blockedBy.mkString(",")))
   }
 
   def triggerExists(jdbcTemplate: JdbcTemplate,
@@ -435,5 +402,8 @@ class PgOperation extends DbOperation {
     jdbcTemplate.execute(sql)
   }
 
+  def ackArgs(ids: List[Long], status: String, message: String) = {
+    for (id <- ids) yield Array[AnyRef](id.asInstanceOf[AnyRef], status, message)
+  }
 
 }

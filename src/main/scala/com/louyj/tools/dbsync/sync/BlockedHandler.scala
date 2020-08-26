@@ -23,19 +23,21 @@ class BlockedHandler(sysConfig: SysConfig, queueManager: QueueManager,
   start()
 
   override def run(): Unit = {
+    logger.info("Blocked handler worker lanuched")
     while (!isInterrupted) {
       try {
         val blockedData = queueManager.takeBlocked()
         val data = blockedData.data
         val sourceDb = data.sourceDb
         val dbConfig = dbConfigs(sourceDb)
-        val jdbc = dsPools.jdbcTemplate(sourceDb)
+        val srcJdbc = dsPools.jdbcTemplate(sourceDb)
         val hash = data.items.head.hash
         val id = data.items.head.id
         val partition = math.abs(hash % sysConfig.partition).intValue()
         val dbOpt = dbOpts(dbConfig.`type`)
         logger.warn(s"Data ${id}[$sourceDb] blocked by ${blockedData.blockedBy.mkString(",")}")
-        dbOpt.markBlocked(dbConfig.sysSchema, jdbc, blockedData, partition)
+        val message = s"partition $partition hash $hash blocked by ${blockedData.blockedBy.mkString(",")}"
+        dbOpt.batchAck(srcJdbc, dbConfig.sysSchema, List(id), "BLK", message)
       } catch {
         case e: InterruptedException => throw e
         case e: Exception => {

@@ -14,7 +14,7 @@ import org.slf4j.LoggerFactory
  */
 
 class JobScheduler(dsPools: DatasourcePools,
-                   sysConfig: SysConfig, dbConfigs: List[DatabaseConfig],
+                   sysConfig: SysConfig, dbConfigs: List[DatabaseConfig], dbconfigsMap: Map[String, DatabaseConfig],
                    syncConfigs: List[SyncConfig]) {
 
   val logger = LoggerFactory.getLogger(getClass)
@@ -25,7 +25,7 @@ class JobScheduler(dsPools: DatasourcePools,
   timer.schedule(cleanWorker, sysConfig.cleanInterval, sysConfig.cleanInterval)
   logger.info(s"Clean worker lanuched, scheduled at fixed rate of ${sysConfig.cleanInterval}ms")
 
-  val syncTrigger = new SyncTrigger(dsPools, dbConfigs, syncConfigs)
+  val syncTrigger = new SyncTrigger(dsPools, dbConfigs, dbconfigsMap, syncConfigs)
   timer.schedule(syncTrigger, sysConfig.syncTriggerInterval, sysConfig.syncTriggerInterval)
   logger.info(s"Sync trigger worker lanuched, scheduled at fixed rate of ${sysConfig.syncTriggerInterval}ms")
 

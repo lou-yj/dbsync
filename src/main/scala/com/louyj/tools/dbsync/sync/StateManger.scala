@@ -1,12 +1,7 @@
 package com.louyj.tools.dbsync.sync
 
-import java.io.File
-import java.nio.charset.StandardCharsets.UTF_8
+import java.io._
 
-import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility
-import com.fasterxml.jackson.annotation.PropertyAccessor
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.leansoft.bigqueue.{BigQueueImpl, IBigQueue}
 import com.louyj.tools.dbsync.DatasourcePools
 import com.louyj.tools.dbsync.config.{DatabaseConfig, SysConfig}
@@ -24,9 +19,6 @@ import org.slf4j.LoggerFactory
 
 class StateManger(sysConfig: SysConfig, dbconfigs: List[DatabaseConfig], dsPools: DatasourcePools) {
 
-  val jackson = new ObjectMapper()
-  jackson.setVisibility(PropertyAccessor.FIELD, Visibility.ANY)
-  jackson.registerModule(DefaultScalaModule)
   val logger = LoggerFactory.getLogger(getClass)
 
   val stateDb = buildDb
@@ -38,10 +30,6 @@ class StateManger(sysConfig: SysConfig, dbconfigs: List[DatabaseConfig], dsPools
   dbconfigs.foreach(cleanBlockedStatus)
 
 
-  implicit def string2ByteArray(str: String) = str.getBytes(UTF_8)
-
-  implicit def byteArray2String(bytes: Array[Byte]) = new String(bytes, UTF_8)
-
   def isBlocked(hash: Long) = retryMap.containsKey(hash)
 
   def blockedIds(hash: Long) = retryMap.getOrDefault(hash, Set[Long]())
@@ -50,12 +38,28 @@ class StateManger(sysConfig: SysConfig, dbconfigs: List[DatabaseConfig], dsPools
 
   def removeBlocked(hash: Long) = blockedMap.remove(hash)
 
+
+  private def serialize(any: Any) = {
+    val baas = new ByteArrayOutputStream()
+    val oos = new ObjectOutputStream(baas)
+    oos.writeObject(any)
+    oos.close()
+    baas.toByteArray
+  }
+
+  private def deserialize(bytes: Array[Byte]) = {
+    val bais = new ByteArrayInputStream(bytes)
+    val ois = new ObjectInputStream(bais)
+    val any = ois.readObject()
+    ois.close()
+    any
+  }
+
   def block(blockedData: BlockedData) = {
     val hash = blockedData.data.items.head.hash
     val list = blockedMap.getOrDefault(hash, List())
     blockedMap.put(hash, list :+ blockedData)
-    val json = jackson.writeValueAsString(blockedData)
-    blockedQueue.enqueue(json)
+    blockedQueue.enqueue(serialize(blockedData))
   }
 
   def errorRetry(data: ErrorBatch) = {
@@ -64,17 +68,17 @@ class StateManger(sysConfig: SysConfig, dbconfigs: List[DatabaseConfig], dsPools
       val nids = if (ids.isEmpty) Set(pair._2) else ids + pair._2
       retryMap.put(pair._1, nids)
     }
-    retryQueue.enqueue(jackson.writeValueAsString(data))
+    retryQueue.enqueue(serialize(data))
   }
 
   def takeError = {
     val bytes = retryQueue.dequeue()
-    if (bytes == null) null else jackson.readValue(bytes, classOf[ErrorBatch])
+    if (bytes == null) null else deserialize(bytes).asInstanceOf[ErrorBatch]
   }
 
   def takeBlocked = {
     val bytes = blockedQueue.dequeue()
-    if (bytes == null) null else jackson.readValue(bytes, classOf[BlockedData])
+    if (bytes == null) null else deserialize(bytes).asInstanceOf[BlockedData]
   }
 
   def cleanBlockedStatus(dbConfig: DatabaseConfig) = {

@@ -5,6 +5,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import com.louyj.tools.dbsync.DatasourcePools
 import com.louyj.tools.dbsync.config.{DatabaseConfig, SysConfig}
+import com.louyj.tools.dbsync.dbopt.DbOperationRegister.dbOpts
 import org.slf4j.LoggerFactory
 
 /**
@@ -23,43 +24,58 @@ class ErrorResolver(sysConfig: SysConfig, queueManager: QueueManager, dsPools: D
   start()
 
   override def run(): Unit = {
+    logger.info("Error resolver worker lanuched")
     while (!isInterrupted) {
-      val errorBatch = queueManager.takeError
-
-
+      try {
+        val errorBatch = queueManager.takeError
+        loopRetry(errorBatch)
+      } catch {
+        case e: InterruptedException => throw e
+        case e: Exception => {
+          logger.info("Error resolve failed", e)
+          TimeUnit.SECONDS.sleep(1)
+        }
+      }
     }
   }
 
   def loopRetry(errorBatch: ErrorBatch): Unit = {
-    var retry = new AtomicInteger(sysConfig.maxRetry)
     val sourceDb = errorBatch.sourceDb
     val targetDb = errorBatch.targetDb
     logger.warn(s"Receive ${errorBatch.ids.size} error data, table ${errorBatch.schema}.${errorBatch.table}[$sourceDb->$targetDb], ids ${errorBatch.ids.mkString(",")} ")
     val srcJdbc = dsPools.jdbcTemplate(sourceDb)
     val tarJdbc = dsPools.jdbcTemplate(targetDb)
     (errorBatch.args zip errorBatch.ids zip errorBatch.hashs).foreach(triple => {
+      val retry = new AtomicInteger(sysConfig.maxRetry)
       val tuple = triple._1
       val args = tuple._1
       val id = tuple._2
       val hash = triple._2
+      val partition = math.abs(hash % sysConfig.partition).intValue()
       logger.info(s"Retry data ${errorBatch.schema}.${errorBatch.table}[$sourceDb->$targetDb] id $id, will retry ${sysConfig.maxRetry} times interval ${sysConfig.retryInterval}ms")
       while (retry.decrementAndGet() > 0) {
         try {
           tarJdbc.update(errorBatch.sql, args: _*)
+          val dbConfig = dbConfigs(sourceDb)
+
+          val ackSql = dbOpts(sourceDb).batchAck(srcJdbc, dbConfig.sysSchema, List(id), "OK", s"success with ${sysConfig.maxRetry - retry.get()} retry")
           logger.info(s"Successfully retry for ${errorBatch.schema}.${errorBatch.table}[$sourceDb->$targetDb] id $id")
-          queueManager.resolvedError(hash, id)
+          queueManager.resolvedError(partition, hash, id)
           retry.set(0)
         } catch {
           case e: InterruptedException => throw e
-          case e: Exception => TimeUnit.MILLISECONDS.sleep(sysConfig.retryInterval)
+          case e: Exception => {
+            logger.warn(s"Retry failed ${errorBatch.schema}.${errorBatch.table}[$sourceDb->$targetDb] id $id, reason ${e.getClass.getSimpleName}-${e.getMessage}")
+            TimeUnit.MILLISECONDS.sleep(sysConfig.retryInterval)
+          }
         }
       }
     })
 
   }
 
-  def retry() = {
-
+  def ackArgs(ids: List[Long], status: String, message: String) = {
+    for (id <- ids) yield Array[AnyRef](id.asInstanceOf[AnyRef], status, message)
   }
 
 }

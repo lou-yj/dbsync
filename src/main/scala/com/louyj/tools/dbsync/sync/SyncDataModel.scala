@@ -37,4 +37,5 @@ case class AckData(dbName: String, ids: List[Long], status: String, message: Str
 case class ErrorBatch(sourceDb: String, targetDb: String, schema: String, table: String, sql: String, args: List[Array[AnyRef]],
                       ids: List[Long], hashs: List[Long], reason: String)
 
+@SerialVersionUID(1L)
 case class BlockedData(blockedBy: Set[Long], data: BatchData)

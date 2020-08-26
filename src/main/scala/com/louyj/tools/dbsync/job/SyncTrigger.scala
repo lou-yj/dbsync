@@ -14,7 +14,9 @@ import org.slf4j.LoggerFactory
  * @author Louyj<br/>
  */
 
-class SyncTrigger(dsPools: DatasourcePools, dbConfigs: List[DatabaseConfig], syncConfigs: List[SyncConfig])
+class SyncTrigger(dsPools: DatasourcePools, dbConfigs: List[DatabaseConfig],
+                  dbconfigsMap: Map[String, DatabaseConfig],
+                  syncConfigs: List[SyncConfig])
   extends TimerTask {
 
   val logger = LoggerFactory.getLogger(getClass)
@@ -22,7 +24,8 @@ class SyncTrigger(dsPools: DatasourcePools, dbConfigs: List[DatabaseConfig], syn
   override def run(): Unit = {
     for (dbconfig <- dbConfigs;
          syncConfig <- syncConfigs if syncConfig.sourceDb == dbconfig.name) {
-      syncTrigger(dbconfig, dsPools, syncConfig)
+      val tarDbConfig = dbconfigsMap(syncConfig.targetDb)
+      syncTrigger(dbconfig, tarDbConfig, dsPools, syncConfig, false)
     }
   }
 
