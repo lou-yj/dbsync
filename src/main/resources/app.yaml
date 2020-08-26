@@ -1,6 +1,6 @@
 sys:
   batch: 10000
-  partition: 10
+  partition: 20
   maxPollWait: 5000
   cleanInterval: 60000
   syncTriggerInterval: 60000
