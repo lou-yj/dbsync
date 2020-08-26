@@ -28,6 +28,7 @@ case class SysConfig(var batch: Int = 10000,
                      var dataKeepHours: Int = 24,
                      var maxRetry: Int = Int.MaxValue,
                      var retryInterval: Int = 10000,
+                     var pollBlockInterval: Long = 1000,
                      var workDirectory: String = ".",
                      var stateDirectory: String = "state")
 

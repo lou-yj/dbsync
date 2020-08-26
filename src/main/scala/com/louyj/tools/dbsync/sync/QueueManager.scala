@@ -2,6 +2,7 @@ package com.louyj.tools.dbsync.sync
 
 import java.util.concurrent.{ArrayBlockingQueue, TimeUnit}
 
+import com.louyj.tools.dbsync.config.SysConfig
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable.ListBuffer
@@ -13,7 +14,7 @@ import scala.collection.mutable.ListBuffer
  * @author Louyj<br/>
  */
 
-class QueueManager(val partition: Int, state: StateManger) {
+class QueueManager(val partition: Int, state: StateManger, sysConfig: SysConfig) {
 
   val logger = LoggerFactory.getLogger(getClass)
 
@@ -28,7 +29,7 @@ class QueueManager(val partition: Int, state: StateManger) {
 
   def take(partition: Int): BatchData = {
     queue(partition).synchronized {
-      val batchData = queue(partition).poll(60, TimeUnit.SECONDS)
+      val batchData = queue(partition).poll(sysConfig.pollBlockInterval, TimeUnit.MILLISECONDS)
       if (batchData == null) return null
       var blocked = false
       batchData.items.foreach(d => if (state.isBlocked(d.hash)) blocked = true)
@@ -74,6 +75,7 @@ class QueueManager(val partition: Int, state: StateManger) {
       state.updateBlocked(hash, nids)
       if (nids.isEmpty) {
         unBlockedEventQueues(partition).put(hash)
+        logger.info(s"Hash slot $hash blocked was resolved, wakeup data consumer")
       } else {
         logger.info(s"Hash slot $hash still blocked by $ids, throught $id is marked resolved")
       }

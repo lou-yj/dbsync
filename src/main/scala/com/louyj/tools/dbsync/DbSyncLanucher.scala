@@ -36,7 +36,7 @@ object DbSyncLanucher {
     new CleanWorker(dsPools, sysConfig, dbConfigs)
 
     val stateManager = new StateManger(sysConfig, dbConfigs, dsPools)
-    val queueManager = new QueueManager(sysConfig.partition, stateManager)
+    val queueManager = new QueueManager(sysConfig.partition, stateManager, sysConfig)
     new DataSyncer(dbconfigsMap, queueManager, dsPools)
     new ErrorResolver(sysConfig, queueManager, dsPools, dbconfigsMap)
     new BlockedHandler(sysConfig, queueManager, dsPools, dbconfigsMap)
