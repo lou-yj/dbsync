@@ -18,7 +18,7 @@ class QueueManager(val partition: Int, state: StateManger, sysConfig: SysConfig)
 
   val logger = LoggerFactory.getLogger(getClass)
 
-  val queues = (for (i <- 0 until partition) yield i -> new ArrayBlockingQueue[BatchData](2)).toMap
+  val queues = (for (i <- 0 until partition) yield i -> new ArrayBlockingQueue[BatchData](partition)).toMap
 
   val unBlockedEventQueues = (for (i <- 0 until partition) yield i -> new ArrayBlockingQueue[Long](100)).toMap
 

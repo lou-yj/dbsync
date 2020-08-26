@@ -341,6 +341,9 @@ class PgOperation extends DbOperation {
         (select "dataId" from ${dbConfig.sysSchema}.sync_data_status where status='OK'
         and "createTime" < current_timestamp-'$keepHours hour'::interval
         );
+        VACUUM analyze sync_data;
+        VACUUM analyze sync_data_status;
+        VACUUM analyze sync_trigger_version;
       """
     jdbcTemplate.update(sql)
   }
