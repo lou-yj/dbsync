@@ -49,15 +49,27 @@ class PgOperation extends DbOperation {
         conflictSetBuffer += s"""\"${item._1}\" = EXCLUDED.\"${item._1}\""""
       }
     })
-    val sql =
-      s"""
+    if (conflictSetBuffer.isEmpty) {
+      val sql =
+        s"""
             insert into \"${syncData.schema}\".\"${syncData.table}\"
             (${fieldBuffer.mkString(",")})
             values
             (${(for (_ <- valueBuffer.indices) yield "?").mkString(",")})
-            ON CONFLICT (${syncData.keys.mkString(",")}) DO UPDATE SET ${conflictSetBuffer.mkString(",")};
+            ON CONFLICT ("${syncData.keys.mkString("""","""")}") DO NOTHING;
           """
-    (sql, valueBuffer.toArray)
+      (sql, valueBuffer.toArray)
+    } else {
+      val sql =
+        s"""
+            insert into \"${syncData.schema}\".\"${syncData.table}\"
+            (${fieldBuffer.mkString(",")})
+            values
+            (${(for (_ <- valueBuffer.indices) yield "?").mkString(",")})
+            ON CONFLICT ("${syncData.keys.mkString("""","""")}") DO UPDATE SET ${conflictSetBuffer.mkString(",")};
+          """
+      (sql, valueBuffer.toArray)
+    }
   }
 
   override def prepareBatchDelete(syncData: SyncData): (String, Array[AnyRef]) = {

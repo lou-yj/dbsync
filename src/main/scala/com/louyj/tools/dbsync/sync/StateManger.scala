@@ -36,7 +36,7 @@ class StateManger(sysConfig: SysConfig, dbconfigs: List[DatabaseConfig], dsPools
 
   def updateBlocked(hash: Long, ids: Set[Long]): Unit = if (ids.isEmpty) retryMap.remove(hash) else retryMap.put(hash, ids)
 
-  def removeBlocked(hash: Long) = blockedMap.remove(hash)
+  def removeBlocked(hash: Long): List[BlockedData] = blockedMap.remove(hash)
 
 
   private def serialize(any: Any) = {

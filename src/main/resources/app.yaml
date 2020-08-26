@@ -32,4 +32,4 @@ sync:
     targetDb: srv
     sourceSchema: dbsync
     sourceTable: test01
-    sourceKeys: vin,brand_id
+    sourceKeys: source,part_name,sub_chain

@@ -2,6 +2,7 @@ package com.louyj.tools.dbsync.sync
 
 import java.util.concurrent.TimeUnit
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.louyj.tools.dbsync.DatasourcePools
 import com.louyj.tools.dbsync.config.DatabaseConfig
 import com.louyj.tools.dbsync.dbopt.DbOperation
@@ -127,12 +128,14 @@ class SyncWorker(partition: Int,
     if (sql == null) return ()
     import scala.collection.JavaConverters._
     try {
+      println(new ObjectMapper().writeValueAsString(args.asJava))
       tarJdbc.batchUpdate(sql, args.asJava)
       dbOpt.batchAck(srcJdbc, sourceSysSchema, ids, "OK")
       logger.info(s"Sync ${args.size} data for table $schema.$table[$sourceDb->$targetDb]")
     } catch {
       case e: InterruptedException => throw e
       case e: Exception =>
+        logger.error("Sync data failed", e)
         val reason = s"${e.getClass.getSimpleName}-${e.getMessage}"
         fallbackExec(sourceDb, targetDb, sourceSysSchema,
           dbOpt, srcJdbc, schema, table, sql, args, ids, hashs, reason)
