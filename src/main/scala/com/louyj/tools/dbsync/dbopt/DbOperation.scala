@@ -4,8 +4,6 @@ import com.louyj.tools.dbsync.config.{DatabaseConfig, SyncConfig, SysConfig}
 import com.louyj.tools.dbsync.sync.{SyncData, SyncDataModel}
 import org.springframework.jdbc.core.JdbcTemplate
 
-import scala.collection.mutable.ListBuffer
-
 /**
  *
  * Create at 2020/8/24 9:43<br/>
@@ -19,9 +17,9 @@ trait DbOperation {
 
   def pollBatch(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, batch: Int, offset: Long): List[SyncDataModel]
 
-  def batchUpsertSql(syncData: SyncData, fieldBuffer: ListBuffer[String], valueBuffer: ListBuffer[AnyRef], conflictSetBuffer: ListBuffer[AnyRef]): String
+  def prepareBatchUpsert(syncData: SyncData): (String, Array[AnyRef])
 
-  def batchDeleteSql(syncData: SyncData, whereBuffer: ListBuffer[String]): String
+  def prepareBatchDelete(syncData: SyncData): (String, Array[AnyRef])
 
 
   def buildInsertTrigger(dbName: String, sysSchema: String, jdbcTemplate: JdbcTemplate, syncConfig: SyncConfig)

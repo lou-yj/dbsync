@@ -41,7 +41,7 @@ class SyncWorker(partition: Int,
     while (!isInterrupted) {
       try {
         syncBlocked()
-        val batchData = queueManager.take(partition);
+        val batchData = queueManager.take(partition)
         syncData(batchData)
       } catch {
         case e: InterruptedException => throw e
@@ -112,29 +112,9 @@ class SyncWorker(partition: Int,
   def toSql(dbOpts: DbOperation, syncData: SyncData): (String, Array[AnyRef]) = {
     syncData.operation match {
       case "I" | "U" =>
-        val fieldBuffer = new ListBuffer[String]
-        val valueBuffer = new ListBuffer[AnyRef]
-        val conflictSetBuffer = new ListBuffer[AnyRef]
-        syncData.data.foreach(item => {
-          fieldBuffer += s"""\"${item._1}\""""
-          valueBuffer += item._2
-          if (!syncData.key.contains(item._1)) {
-            conflictSetBuffer += s"""\"${item._1}\" = EXCLUDED.\"${item._1}\""""
-          }
-        })
-        val sql = dbOpts.batchUpsertSql(syncData, fieldBuffer, valueBuffer, conflictSetBuffer)
-        (sql, valueBuffer.toArray)
+        dbOpts.prepareBatchUpsert(syncData)
       case "D" =>
-        val whereBuffer = new ListBuffer[String]
-        val whereValueBuffer = new ListBuffer[AnyRef]
-        syncData.data.foreach(item => {
-          if (syncData.key.contains(item._1)) {
-            whereBuffer += s"""\"${item._1}\"=?"""
-            whereValueBuffer += item._2
-          }
-        })
-        val sql = dbOpts.batchDeleteSql(syncData, whereBuffer)
-        (sql, whereValueBuffer.toArray)
+        dbOpts.prepareBatchDelete(syncData)
     }
   }
 

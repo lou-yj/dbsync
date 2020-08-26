@@ -38,24 +38,46 @@ class PgOperation extends DbOperation {
     jdbcTemplate.query(sql, rowMapper).asScala.toList
   }
 
-  override def batchUpsertSql(syncData: SyncData, fieldBuffer: ListBuffer[String], valueBuffer: ListBuffer[AnyRef], conflictSetBuffer: ListBuffer[AnyRef]): String = {
-    s"""
+  override def prepareBatchUpsert(syncData: SyncData): (String, Array[AnyRef]) = {
+    val fieldBuffer = new ListBuffer[String]
+    val valueBuffer = new ListBuffer[AnyRef]
+    val conflictSetBuffer = new ListBuffer[AnyRef]
+    syncData.data.foreach(item => {
+      fieldBuffer += s"""\"${item._1}\""""
+      valueBuffer += item._2
+      if (!syncData.keys.contains(item._1)) {
+        conflictSetBuffer += s"""\"${item._1}\" = EXCLUDED.\"${item._1}\""""
+      }
+    })
+    val sql =
+      s"""
             insert into \"${syncData.schema}\".\"${syncData.table}\"
             (${fieldBuffer.mkString(",")})
             values
             (${(for (_ <- valueBuffer.indices) yield "?").mkString(",")})
-            ON CONFLICT (${syncData.key.mkString(",")}) DO UPDATE SET ${conflictSetBuffer.mkString(",")};
+            ON CONFLICT (${syncData.keys.mkString(",")}) DO UPDATE SET ${conflictSetBuffer.mkString(",")};
           """
+    (sql, valueBuffer.toArray)
   }
 
-  override def batchDeleteSql(syncData: SyncData, whereBuffer: ListBuffer[String]): String = {
-    s"""
+  override def prepareBatchDelete(syncData: SyncData): (String, Array[AnyRef]) = {
+    val whereBuffer = new ListBuffer[String]
+    val whereValueBuffer = new ListBuffer[AnyRef]
+    syncData.data.foreach(item => {
+      if (syncData.keys.contains(item._1)) {
+        whereBuffer += s"""\"${item._1}\"=?"""
+        whereValueBuffer += item._2
+      }
+    })
+    val sql =
+      s"""
             delete from "${syncData.schema}"."${syncData.table}"
             where ${whereBuffer.mkString(" and ")}
           """
+    (sql, whereValueBuffer.toArray)
   }
 
-  override def batchAck(jdbcTemplate: JdbcTemplate, sysSchema: String, ids: List[Long], status: String, message: String = "") = {
+  override def batchAck(jdbc: JdbcTemplate, sysSchema: String, ids: List[Long], status: String, message: String = "") = {
     val ackSql =
       s"""
           insert into $sysSchema.sync_data_status
@@ -63,7 +85,7 @@ class PgOperation extends DbOperation {
           on conflict ("dataId") do update set
           status=EXCLUDED.status,message=EXCLUDED.message,retry=$sysSchema.sync_data_status.retry+1;
     """
-    jdbcTemplate.batchUpdate(ackSql, ackArgs(ids, status, message).asJava)
+    jdbc.batchUpdate(ackSql, ackArgs(ids, status, message).asJava)
   }
 
 
@@ -397,7 +419,7 @@ class PgOperation extends DbOperation {
                         schema: String, table: String, indexColumns: String): Unit = {
     val sql =
       s"""
-     create unique index on ${schema}.${table}($indexColumns)
+     create unique index on $schema.$table($indexColumns)
    """
     jdbcTemplate.execute(sql)
   }

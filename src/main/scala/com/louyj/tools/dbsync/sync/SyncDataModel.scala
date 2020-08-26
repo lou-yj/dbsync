@@ -27,7 +27,7 @@ class SyncDataModel {
 
 
 case class SyncData(hash: Long, id: Long, operation: String,
-                    schema: String, table: String, key: Array[String]
+                    schema: String, table: String, keys: Array[String]
                     , data: Map[String, AnyRef])
 
 case class BatchData(sourceDb: String, targetDb: String, partition: Int, var items: ListBuffer[SyncData])
