@@ -6,7 +6,6 @@ import com.louyj.tools.dbsync.DatasourcePools
 import com.louyj.tools.dbsync.DbSyncLanucher.logger
 import com.louyj.tools.dbsync.config.{DatabaseConfig, SyncConfig}
 import com.louyj.tools.dbsync.dbopt.DbOperationRegister.dbOpts
-import com.louyj.tools.dbsync.job.SyncTrigger.syncTrigger
 import org.slf4j.LoggerFactory
 
 /**
@@ -19,7 +18,7 @@ import org.slf4j.LoggerFactory
 class SyncTrigger(dsPools: DatasourcePools, dbConfigs: List[DatabaseConfig],
                   dbconfigsMap: Map[String, DatabaseConfig],
                   syncConfigs: List[SyncConfig])
-  extends TimerTask {
+  extends TimerTask with TriggerSync {
 
   val logger = LoggerFactory.getLogger(getClass)
 
@@ -33,7 +32,7 @@ class SyncTrigger(dsPools: DatasourcePools, dbConfigs: List[DatabaseConfig],
 
 }
 
-object SyncTrigger {
+trait TriggerSync {
 
   def syncTrigger = (srcDbConfig: DatabaseConfig, tarDbConfig: DatabaseConfig, dsPools: DatasourcePools, syncConfig: SyncConfig, init: Boolean) => {
     val srcDbName = syncConfig.sourceDb

@@ -1,16 +1,11 @@
 package com.louyj.tools.dbsync.config
 
 import java.io.InputStream
-import java.util
 
-import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility
-import com.fasterxml.jackson.annotation.PropertyAccessor
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.apache.commons.lang3.StringUtils.isBlank
-import org.yaml.snakeyaml.Yaml
-
-import scala.collection.JavaConverters._
 
 /**
  *
@@ -21,41 +16,32 @@ import scala.collection.JavaConverters._
 
 class ConfigParser(stream: InputStream) {
 
-  val configHashMap: util.HashMap[String, Any] = new Yaml().load(stream)
-  val configMap: Map[String, Any] = configHashMap.asScala.toMap
-  val objectMapper = new ObjectMapper()
-  objectMapper.setVisibility(PropertyAccessor.FIELD, Visibility.ANY)
-  objectMapper.registerModule(DefaultScalaModule)
+  private val yaml = new ObjectMapper(new YAMLFactory)
+  yaml.registerModule(DefaultScalaModule)
+  private val jackson = new ObjectMapper()
+  jackson.registerModule(DefaultScalaModule)
+
+  val appConfig: AppConfig = yaml.readValue(stream, classOf[AppConfig])
 
   def sysConfig = {
-    val sysMap = configMap("sys")
-    validateSysConfig(objectMapper.convertValue(sysMap, classOf[SysConfig]))
+    validateSysConfig(appConfig.sys)
   }
 
   def databaseConfig = {
-    for (item <- configMap("db").asInstanceOf[util.List[util.Map[String, Any]]].asScala.toList)
-      yield validateDbConfig(objectMapper.convertValue(item, classOf[DatabaseConfig]))
+    for (item <- appConfig.db) yield validateDbConfig(item)
   }
 
   def databaseConfigMap = {
-    (for (item <- configMap("db").asInstanceOf[util.List[util.Map[String, Any]]].asScala.toList)
-      yield {
-        val config = validateDbConfig(objectMapper.convertValue(item, classOf[DatabaseConfig]))
-        config.name -> config
-      }).toMap
+    (for (item <- appConfig.db) yield item.name -> validateDbConfig(item)).toMap
   }
 
   def syncConfig = {
-    for (item <- configMap("sync").asInstanceOf[util.List[util.Map[String, Any]]].asScala.toList)
-      yield validateSyncConfig(objectMapper.convertValue(item, classOf[SyncConfig]))
+    for (item <- appConfig.sync) yield validateSyncConfig(item)
   }
 
   def syncConfigMap = {
-    (for (item <- configMap("sync").asInstanceOf[util.List[util.Map[String, Any]]].asScala.toList)
-      yield {
-        val config = objectMapper.convertValue(item, classOf[SyncConfig])
-        s"${config.sourceDb}:${config.sourceSchema}:${config.sourceTable}" -> validateSyncConfig(config)
-      }).toMap
+    (for (item <- appConfig.sync)
+      yield s"${item.sourceDb}:${item.sourceSchema}:${item.sourceTable}" -> validateSyncConfig(item)).toMap
   }
 
   def validateSyncConfig(syncConfig: SyncConfig) = {

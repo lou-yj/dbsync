@@ -3,7 +3,7 @@ package com.louyj.tools.dbsync.init
 import com.louyj.tools.dbsync.DatasourcePools
 import com.louyj.tools.dbsync.config.{DatabaseConfig, SyncConfig}
 import com.louyj.tools.dbsync.dbopt.DbOperationRegister.dbOpts
-import com.louyj.tools.dbsync.job.SyncTrigger.syncTrigger
+import com.louyj.tools.dbsync.job.TriggerSync
 import org.slf4j.LoggerFactory
 
 /**
@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory
 
 class TriggerInitializer(srcDbConfig: DatabaseConfig, dbconfigs: Map[String, DatabaseConfig],
                          dsPools: DatasourcePools,
-                         syncConfigs: List[SyncConfig]) {
+                         syncConfigs: List[SyncConfig]) extends TriggerSync {
 
   val logger = LoggerFactory.getLogger(getClass)
 

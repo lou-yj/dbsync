@@ -7,6 +7,13 @@ package com.louyj.tools.dbsync.config
  * @author Louyj<br/>
  */
 
+
+case class AppConfig(
+                      sys: SysConfig,
+                      db: List[DatabaseConfig],
+                      sync: List[SyncConfig]
+                    )
+
 case class DatabaseConfig(name: String, sysSchema: String, `type`: String,
                           driver: String, url: String,
                           user: String, password: String,
