@@ -26,58 +26,69 @@ class SyncTrigger(dsPools: DatasourcePools, dbConfigs: List[DatabaseConfig],
     for (dbconfig <- dbConfigs;
          syncConfig <- syncConfigs if syncConfig.sourceDb == dbconfig.name) {
       val tarDbConfig = dbconfigsMap(syncConfig.targetDb)
-      syncTrigger(dbconfig, tarDbConfig, dsPools, syncConfig, false)
+      syncTrigger(dbconfig, tarDbConfig, dsPools, syncConfig)
     }
   }
 
 }
 
+
+trait BootstrapTriggerSync extends TriggerSync {
+
+  override def onError(reason: String): Unit = {
+    logger.error(s"$reason, system exit")
+    System.exit(-1)
+  }
+
+}
+
+
 trait TriggerSync {
 
-  def syncTrigger = (srcDbConfig: DatabaseConfig, tarDbConfig: DatabaseConfig, dsPools: DatasourcePools, syncConfig: SyncConfig, init: Boolean) => {
+  def onError(reason: String) = {
+
+  }
+
+  def syncTrigger(srcDbConfig: DatabaseConfig, tarDbConfig: DatabaseConfig, dsPools: DatasourcePools, syncConfig: SyncConfig) = {
     val srcDbName = syncConfig.sourceDb
     val srcDbOpt = dbOpts(srcDbConfig.`type`)
     val srcJdbc = dsPools.jdbcTemplate(srcDbName)
-    val srcSysSchema = srcDbConfig.sysSchema
     val exists = srcDbOpt.tableExists(srcJdbc, syncConfig.sourceSchema, syncConfig.sourceTable)
     if (exists) {
-      srcDbOpt.buildInsertTrigger(srcDbName, srcSysSchema, srcJdbc, syncConfig)
-      srcDbOpt.buildUpdateTrigger(srcDbName, srcSysSchema, srcJdbc, syncConfig)
-      srcDbOpt.buildDeleteTrigger(srcDbName, srcSysSchema, srcJdbc, syncConfig)
-
-      if (tarDbConfig.createIndex) {
-        val tarDbName = syncConfig.targetDb
-        val tarDbOpt = dbOpts(tarDbConfig.`type`)
-        val tarJdbc = dsPools.jdbcTemplate(tarDbName)
-        val tarTableExists = tarDbOpt.tableExists(tarJdbc, syncConfig.targetSchema, syncConfig.targetTable)
-        if (tarTableExists) {
-          val indexColumns = syncConfig.sourceKeys.split(",").sorted.mkString(",")
-          val indexExists = tarDbOpt.uniqueIndexExists(tarJdbc, syncConfig.targetSchema, syncConfig.targetTable, indexColumns)
-          if (!indexExists) {
-            logger.info(s"Unique index $indexColumns for table ${syncConfig.targetSchema}.${syncConfig.targetTable}[$tarDbName] not exists, rebuild it")
-            try {
-              tarDbOpt.createUniqueIndex(tarJdbc, syncConfig.targetSchema, syncConfig.targetTable, indexColumns)
-              logger.info(s"Unique index $indexColumns for table ${syncConfig.targetSchema}.${syncConfig.targetTable}[$tarDbName] created")
-            } catch {
-              case e: Exception => logger.error(s"Create unique index $indexColumns for table ${syncConfig.targetSchema}.${syncConfig.targetTable}[$tarDbName] failed, reason ${e.getMessage}")
-                if (init) {
-                  logger.error("Setup failed, system exit")
-                  System.exit(-1)
-                }
-            }
-          } else {
-            logger.debug(s"Index $indexColumns for table ${syncConfig.targetSchema}.${syncConfig.targetTable}[$tarDbName] already exists and matched")
-          }
-        } else {
-          logger.warn(s"Target table ${syncConfig.targetSchema}.${syncConfig.targetTable}[$tarDbName] not exists")
-        }
-      }
+      srcDbOpt.buildInsertTrigger(srcDbConfig, srcJdbc, syncConfig)
+      srcDbOpt.buildUpdateTrigger(srcDbConfig, srcJdbc, syncConfig)
+      srcDbOpt.buildDeleteTrigger(srcDbConfig, srcJdbc, syncConfig)
+      checkIndex(tarDbConfig, syncConfig, dsPools)
     } else {
       logger.error(s"Trigger check failed, table ${syncConfig.sourceSchema}.${syncConfig.sourceTable}[$srcDbName] not exists")
-      if (init) {
-        logger.error("Config check failed, system exit")
-        System.exit(-1)
-      }
+      onError("Trigger check failed")
+    }
+  }
+
+  private def checkIndex(tarDbConfig: DatabaseConfig, syncConfig: SyncConfig, dsPools: DatasourcePools) = {
+    val tarDbName = syncConfig.targetDb
+    val tarDbOpt = dbOpts(tarDbConfig.`type`)
+    val tarJdbc = dsPools.jdbcTemplate(tarDbName)
+    val check: PartialFunction[Boolean, Unit] = {
+      case true =>
+        val indexColumns = syncConfig.sourceKeys.split(",").sorted.mkString(",")
+        if (tarDbOpt.uniqueIndexExists(tarJdbc, syncConfig.targetSchema, syncConfig.targetTable, indexColumns)) {
+          logger.debug(s"Index $indexColumns for table ${syncConfig.targetSchema}.${syncConfig.targetTable}[$tarDbName] already exists and matched")
+        } else {
+          logger.info(s"Unique index $indexColumns for table ${syncConfig.targetSchema}.${syncConfig.targetTable}[$tarDbName] not exists, rebuild it")
+          try {
+            tarDbOpt.createUniqueIndex(tarJdbc, syncConfig.targetSchema, syncConfig.targetTable, indexColumns)
+            logger.info(s"Unique index $indexColumns for table ${syncConfig.targetSchema}.${syncConfig.targetTable}[$tarDbName] created")
+          } catch {
+            case e: Exception => logger.error(s"Create unique index $indexColumns for table ${syncConfig.targetSchema}.${syncConfig.targetTable}[$tarDbName] failed, reason ${e.getMessage}")
+              onError("Index setup failed")
+          }
+        }
+      case false =>
+        logger.warn(s"Target table ${syncConfig.targetSchema}.${syncConfig.targetTable}[$tarDbName] not exists")
+    }
+    if (tarDbConfig.createIndex) {
+      check.apply(tarDbOpt.tableExists(tarJdbc, syncConfig.targetSchema, syncConfig.targetTable))
     }
   }
 

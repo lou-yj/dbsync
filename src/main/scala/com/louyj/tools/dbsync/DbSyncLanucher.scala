@@ -4,7 +4,7 @@ import java.io.FileInputStream
 
 import com.louyj.tools.dbsync.config.ConfigParser
 import com.louyj.tools.dbsync.init.{DatabaseInitializer, TriggerInitializer}
-import com.louyj.tools.dbsync.job.{CleanWorker, JobScheduler}
+import com.louyj.tools.dbsync.job.{BootstrapTriggerSync, CleanWorker, JobScheduler}
 import com.louyj.tools.dbsync.sync._
 import org.slf4j.LoggerFactory
 
@@ -44,7 +44,7 @@ object DbSyncLanucher {
     val threads = new ListBuffer[Thread]
     dbConfigs.foreach(dbConfig => {
       val jdbc = dsPools.jdbcTemplate(dbConfig.name)
-      new TriggerInitializer(dbConfig, dbconfigsMap, dsPools, syncConfigs)
+      new TriggerInitializer(dbConfig, dbconfigsMap, dsPools, syncConfigs) with BootstrapTriggerSync
       threads += new DataPoller(sysConfig, dbConfig, jdbc, queueManager, syncConfigsMap)
     })
     new JobScheduler(dsPools, sysConfig, dbConfigs, dbconfigsMap, syncConfigs)

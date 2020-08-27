@@ -101,7 +101,9 @@ class PgOperation extends DbOperation {
   }
 
 
-  override def buildInsertTrigger(dbName: String, sysSchema: String, jdbcTemplate: JdbcTemplate, syncConfig: SyncConfig): Unit = {
+  override def buildInsertTrigger(dbConfig: DatabaseConfig, jdbcTemplate: JdbcTemplate, syncConfig: SyncConfig): Unit = {
+    val dbName = dbConfig.name
+    val sysSchema = dbConfig.sysSchema
     val content =
       """
         DROP TRIGGER IF EXISTS {{insertTrigger}} ON {{sourceSchema}}.{{sourceTable}};
@@ -153,7 +155,9 @@ class PgOperation extends DbOperation {
   }
 
 
-  override def buildUpdateTrigger(dbName: String, sysSchema: String, jdbcTemplate: JdbcTemplate, syncConfig: SyncConfig): Unit = {
+  override def buildUpdateTrigger(dbConfig: DatabaseConfig, jdbcTemplate: JdbcTemplate, syncConfig: SyncConfig): Unit = {
+    val dbName = dbConfig.name
+    val sysSchema = dbConfig.sysSchema
     val content =
       """
          DROP TRIGGER IF EXISTS {{updateTrigger}} ON {{sourceSchema}}.{{sourceTable}};
@@ -204,7 +208,9 @@ class PgOperation extends DbOperation {
     }
   }
 
-  override def buildDeleteTrigger(dbName: String, sysSchema: String, jdbcTemplate: JdbcTemplate, syncConfig: SyncConfig): Unit = {
+  override def buildDeleteTrigger(dbConfig: DatabaseConfig, jdbcTemplate: JdbcTemplate, syncConfig: SyncConfig): Unit = {
+    val dbName = dbConfig.name
+    val sysSchema = dbConfig.sysSchema
     val content =
       """
         DROP TRIGGER IF EXISTS {{deleteTrigger}} ON {{sourceSchema}}.{{sourceTable}};
@@ -255,8 +261,9 @@ class PgOperation extends DbOperation {
     }
   }
 
-  override def buildSysTable(dbName: String, jdbcTemplate: JdbcTemplate, sysSchema: String): Unit = {
-    val schema = sysSchema
+  override def buildSysTable(dbConfig: DatabaseConfig, jdbcTemplate: JdbcTemplate): Unit = {
+    val dbName = dbConfig.name
+    val schema = dbConfig.sysSchema
     if (schemaExists(jdbcTemplate, schema)) {
       logger.info(s"System schema $schema already exists")
     } else {

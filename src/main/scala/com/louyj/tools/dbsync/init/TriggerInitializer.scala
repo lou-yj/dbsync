@@ -2,7 +2,6 @@ package com.louyj.tools.dbsync.init
 
 import com.louyj.tools.dbsync.DatasourcePools
 import com.louyj.tools.dbsync.config.{DatabaseConfig, SyncConfig}
-import com.louyj.tools.dbsync.dbopt.DbOperationRegister.dbOpts
 import com.louyj.tools.dbsync.job.TriggerSync
 import org.slf4j.LoggerFactory
 
@@ -26,18 +25,8 @@ class TriggerInitializer(srcDbConfig: DatabaseConfig, dbconfigs: Map[String, Dat
 
 
   def buildTrigger(syncConfig: SyncConfig) = {
-    val dbName = syncConfig.sourceDb
-    val dbOpt = dbOpts(srcDbConfig.`type`)
-    val jdbc = dsPools.jdbcTemplate(dbName)
-    val exists = dbOpt.tableExists(jdbc, syncConfig.sourceSchema, syncConfig.sourceTable)
-    if (exists) {
-      val tarDbConfig = dbconfigs(syncConfig.targetDb)
-      syncTrigger(srcDbConfig, tarDbConfig, dsPools, syncConfig, true)
-    } else {
-      logger.error(s"Config check failed, table ${syncConfig.sourceSchema}.${syncConfig.sourceTable}[${dbName}] not exists")
-      logger.error("Config check failed, system exit")
-      System.exit(-1)
-    }
+    val tarDbConfig = dbconfigs(syncConfig.targetDb)
+    syncTrigger(srcDbConfig, tarDbConfig, dsPools, syncConfig)
   }
 
 }

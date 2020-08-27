@@ -23,7 +23,7 @@ class DatabaseInitializer(dsPools: DatasourcePools, dbConfigs: List[DatabaseConf
   def initDb(dbConfig: DatabaseConfig) = {
     val dbOpt = DbOperationRegister.dbOpts(dbConfig.`type`)
     val jdbcTemplate = dsPools.jdbcTemplate(dbConfig.name)
-    dbOpt.buildSysTable(dbConfig.name, jdbcTemplate, dbConfig.sysSchema)
+    dbOpt.buildSysTable(dbConfig, jdbcTemplate)
   }
 
 }

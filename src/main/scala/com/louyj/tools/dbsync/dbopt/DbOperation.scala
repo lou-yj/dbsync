@@ -22,34 +22,25 @@ trait DbOperation {
   def prepareBatchDelete(syncData: SyncData): (String, Array[AnyRef])
 
 
-  def buildInsertTrigger(dbName: String, sysSchema: String, jdbcTemplate: JdbcTemplate, syncConfig: SyncConfig)
+  def buildInsertTrigger(dbConfig: DatabaseConfig, jdbcTemplate: JdbcTemplate, syncConfig: SyncConfig)
 
-  def buildUpdateTrigger(dbName: String, sysSchema: String, jdbcTemplate: JdbcTemplate, syncConfig: SyncConfig)
+  def buildUpdateTrigger(dbConfig: DatabaseConfig, jdbcTemplate: JdbcTemplate, syncConfig: SyncConfig)
 
-  def buildDeleteTrigger(dbName: String, sysSchema: String, jdbcTemplate: JdbcTemplate, syncConfig: SyncConfig)
+  def buildDeleteTrigger(dbConfig: DatabaseConfig, jdbcTemplate: JdbcTemplate, syncConfig: SyncConfig)
 
-  def buildSysTable(dbName: String, jdbcTemplate: JdbcTemplate,
-                    sysSchema: String): Unit
+  def buildSysTable(dbConfig: DatabaseConfig, jdbcTemplate: JdbcTemplate): Unit
 
   def cleanSysTable(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, keepHours: Int): Int
 
   def cleanBlockedStatus(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, sysConfig: SysConfig): Int
 
 
-  def tableExists(jdbcTemplate: JdbcTemplate,
-                  schema: String, table: String): Boolean
+  def tableExists(jdbcTemplate: JdbcTemplate, schema: String, table: String): Boolean
 
-  def uniqueIndexExists(jdbcTemplate: JdbcTemplate,
-                        schema: String, table: String, indexColumns: String): Boolean
+  def uniqueIndexExists(jdbcTemplate: JdbcTemplate, schema: String, table: String, indexColumns: String): Boolean
 
   def batchAck(jdbcTemplate: JdbcTemplate, sysSchema: String, ids: List[Long], status: String, message: String = ""): Array[Int]
 }
 
 
-object DbOperationRegister {
 
-  val pgOpt = new PgOperation
-
-  val dbOpts = Map(pgOpt.name() -> pgOpt)
-
-}
