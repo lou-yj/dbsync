@@ -25,8 +25,10 @@ class TriggerInitializer(srcDbConfig: DatabaseConfig, dbconfigs: Map[String, Dat
 
 
   def buildTrigger(syncConfig: SyncConfig) = {
-    val tarDbConfig = dbconfigs(syncConfig.targetDb)
-    syncTrigger(srcDbConfig, tarDbConfig, dsPools, syncConfig)
+    syncConfig.targetDb.split(",").foreach(targetdb => {
+      val tarDbConfig = dbconfigs(targetdb)
+      syncTrigger(srcDbConfig, tarDbConfig, dsPools, syncConfig)
+    })
   }
 
 }

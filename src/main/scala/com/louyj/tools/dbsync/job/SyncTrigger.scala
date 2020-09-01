@@ -25,8 +25,10 @@ class SyncTrigger(dsPools: DatasourcePools, dbConfigs: List[DatabaseConfig],
   override def run(): Unit = {
     for (dbconfig <- dbConfigs;
          syncConfig <- syncConfigs if syncConfig.sourceDb == dbconfig.name) {
-      val tarDbConfig = dbconfigsMap(syncConfig.targetDb)
-      syncTrigger(dbconfig, tarDbConfig, dsPools, syncConfig)
+      syncConfig.targetDb.split(",").foreach(targetdb => {
+        val tarDbConfig = dbconfigsMap(targetdb)
+        syncTrigger(dbconfig, tarDbConfig, dsPools, syncConfig)
+      })
     }
   }
 
@@ -66,7 +68,7 @@ trait TriggerSync {
   }
 
   private def checkIndex(tarDbConfig: DatabaseConfig, syncConfig: SyncConfig, dsPools: DatasourcePools) = {
-    val tarDbName = syncConfig.targetDb
+    val tarDbName = tarDbConfig.name
     val tarDbOpt = dbOpts(tarDbConfig.`type`)
     val tarJdbc = dsPools.jdbcTemplate(tarDbName)
     val check: PartialFunction[Boolean, Unit] = {
