@@ -429,7 +429,7 @@ class PgOperation extends DbOperation {
         join pg_catalog.pg_index ix on t.oid=ix.indrelid
         join pg_catalog.pg_class i on a.attnum = any(ix.indkey) and i.oid=ix.indexrelid
         join pg_catalog.pg_namespace n on n.oid=t.relnamespace
-        where t.relkind = 'r' and  n.nspname=? and t.relname=?
+        where t.relkind = 'r' and  n.nspname=? and t.relname=? and (ix.indisunique or ix.indisprimary)
         group by ix.indexrelid
         )t where "columns"=?
     """
