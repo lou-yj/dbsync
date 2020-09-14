@@ -35,7 +35,6 @@ class DataPoller(sysConfig: SysConfig, dbConfig: DatabaseConfig,
   objectMapper.setVisibility(PropertyAccessor.FIELD, Visibility.ANY)
   objectMapper.registerModule(DefaultScalaModule)
 
-  var offsetStatus: Long = 0
   var startTime: Timestamp = _
   var endTime: Timestamp = _
 
@@ -50,7 +49,7 @@ class DataPoller(sysConfig: SysConfig, dbConfig: DatabaseConfig,
     logger.info("Start data poller for databasse {}", dbConfig.name)
     while (!isInterrupted) {
       try {
-        val models = dbOpt.pollBatch(jdbc, dbConfig, batchSize, offsetStatus)
+        val models = dbOpt.pollBatch(jdbc, dbConfig, batchSize)
         if (models.nonEmpty) {
           val dataTable: HashBasedTable[String, Int, ListBuffer[SyncData]] = HashBasedTable.create()
           models.foreach(pushModel(_, dataTable))
@@ -58,12 +57,11 @@ class DataPoller(sysConfig: SysConfig, dbConfig: DatabaseConfig,
             val batch = BatchData(dbConfig.name, c.getRowKey, c.getColumnKey, c.getValue)
             queueManager.put(c.getColumnKey, batch)
           })
-          offsetStatus = models.last.id
           startTime = models.head.createTime
           endTime = models.last.createTime
           val startTimeStr = new DateTime(startTime.getTime).toString("yyyy-MM-dd HH:mm:ss")
           val endTimeStr = new DateTime(endTime.getTime).toString("yyyy-MM-dd HH:mm:ss")
-          logger.info(s"Poll ${models.size} data between $startTimeStr and $endTimeStr, current offset $offsetStatus")
+          logger.info(s"Poll ${models.size} data between $startTimeStr and $endTimeStr, current offset ${models.last.id}")
         }
         val percent = (batchSize - models.size) * 1.0 / batchSize
         val waitTime = (percent * maxPollWait).longValue()

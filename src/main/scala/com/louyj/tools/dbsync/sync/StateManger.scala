@@ -84,7 +84,7 @@ class StateManger(sysConfig: SysConfig, dbconfigs: List[DatabaseConfig], dsPools
   def cleanBlockedStatus(dbConfig: DatabaseConfig) = {
     val dbOpt = dbOpts(dbConfig.`type`)
     val jdbc = dsPools.jdbcTemplate(dbConfig.name)
-    val num = dbOpt.cleanBlockedStatus(jdbc, dbConfig, sysConfig)
+    val num = dbOpt.buildBootstrapState(jdbc, dbConfig, sysConfig)
     logger.info(s"Cleaned $num data in blocked status for ${dbConfig.name}")
   }
 

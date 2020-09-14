@@ -15,7 +15,7 @@ trait DbOperation {
 
   def name(): String
 
-  def pollBatch(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, batch: Int, offset: Long): List[SyncDataModel]
+  def pollBatch(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, batch: Int): List[SyncDataModel]
 
   def prepareBatchUpsert(syncData: SyncData): (String, Array[AnyRef])
 
@@ -32,7 +32,7 @@ trait DbOperation {
 
   def cleanSysTable(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, keepHours: Int): Int
 
-  def cleanBlockedStatus(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, sysConfig: SysConfig): Int
+  def buildBootstrapState(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, sysConfig: SysConfig): Int
 
 
   def tableExists(jdbcTemplate: JdbcTemplate, schema: String, table: String): Boolean

@@ -24,18 +24,24 @@ class PgOperation extends DbOperation {
 
   override def name(): String = "postgresql"
 
-  override def pollBatch(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, batch: Int, offset: Long): List[SyncDataModel] = {
+  override def pollBatch(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, batch: Int): List[SyncDataModel] = {
     val sql =
       s"""
       select t1.* from ${dbConfig.sysSchema}.sync_data t1
-      left join ${dbConfig.sysSchema}.sync_data_status t2
+      left join ${dbConfig.sysSchema}.sync_polled t2
       on t1.id=t2."dataId"
-      where t2.status is null and t1.id > $offset
+      where t2."dataId" is null
       order by t1.id
       limit $batch
     """
     val rowMapper = BeanPropertyRowMapper.newInstance(classOf[SyncDataModel])
-    jdbcTemplate.query(sql, rowMapper).asScala.toList
+    val result = jdbcTemplate.query(sql, rowMapper).asScala.toList
+    val args = (for (item <- result) yield Array[Object](item.id.asInstanceOf[Object])).toList
+    jdbcTemplate.batchUpdate(
+      s"""
+        insert into ${dbConfig.sysSchema}.sync_polled ("dataId") values (?)
+      """, args.asJava)
+    result
   }
 
   override def prepareBatchUpsert(syncData: SyncData): (String, Array[AnyRef]) = {
@@ -339,6 +345,24 @@ class PgOperation extends DbOperation {
       jdbcTemplate.execute(sql)
       logger.info("System table {}.{}[{}] updated", schema, table, dbName)
     }
+    table = "sync_polled"
+    if (tableExists(jdbcTemplate, schema, table)) {
+      logger.info("System table {}.{}[{}] already exists", schema, table, dbName)
+    } else {
+      logger.info("System table {}.{}[{}] not exists, rebuild it", schema, table, dbName)
+      val sql =
+        s"""
+          drop table if exists $schema.sync_polled CASCADE ;
+          create table $schema.sync_polled
+         (
+            "dataId" bigint REFERENCES $schema.sync_data(id) ON UPDATE CASCADE ON DELETE CASCADE,
+            "createTime" TIMESTAMP not null default CURRENT_TIMESTAMP,
+            PRIMARY KEY ("dataId")
+         );
+        """
+      jdbcTemplate.execute(sql)
+      logger.info("System table {}.{}[{}] updated", schema, table, dbName)
+    }
   }
 
   override def cleanSysTable(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, keepHours: Int) = {
@@ -355,13 +379,20 @@ class PgOperation extends DbOperation {
     jdbcTemplate.update(sql)
   }
 
-  override def cleanBlockedStatus(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, sysConfig: SysConfig) = {
+  override def buildBootstrapState(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, sysConfig: SysConfig) = {
     val sql =
       s"""
        delete from ${dbConfig.sysSchema}.sync_data_status where status='BLK'
        or (status='ERR' and retry < ${sysConfig.maxRetry});
      """
     jdbcTemplate.update(sql)
+    val pooledSql =
+      s"""
+        delete from ${dbConfig.sysSchema}.sync_polled;
+        insert into ${dbConfig.sysSchema}.sync_polled("dataId")
+        select "dataId" from ${dbConfig.sysSchema}.sync_data_status;
+      """
+    jdbcTemplate.update(pooledSql)
   }
 
   def triggerExists(jdbcTemplate: JdbcTemplate,
