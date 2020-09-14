@@ -372,11 +372,17 @@ class PgOperation extends DbOperation {
         (select "dataId" from ${dbConfig.sysSchema}.sync_data_status where status='OK'
         and "createTime" < current_timestamp-'$keepHours hour'::interval
         );
+      """
+    val count = jdbcTemplate.update(sql)
+    val vacuumSql =
+      s"""
         VACUUM analyze ${dbConfig.sysSchema}.sync_data;
         VACUUM analyze ${dbConfig.sysSchema}.sync_data_status;
         VACUUM analyze ${dbConfig.sysSchema}.sync_trigger_version;
+        VACUUM analyze ${dbConfig.sysSchema}.sync_polled;
       """
-    jdbcTemplate.update(sql)
+    jdbcTemplate.update(vacuumSql)
+    count
   }
 
   override def buildBootstrapState(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, sysConfig: SysConfig) = {
@@ -385,14 +391,16 @@ class PgOperation extends DbOperation {
        delete from ${dbConfig.sysSchema}.sync_data_status where status='BLK'
        or (status='ERR' and retry < ${sysConfig.maxRetry});
      """
-    jdbcTemplate.update(sql)
+    val count = jdbcTemplate.update(sql)
     val pooledSql =
       s"""
         delete from ${dbConfig.sysSchema}.sync_polled;
         insert into ${dbConfig.sysSchema}.sync_polled("dataId")
         select "dataId" from ${dbConfig.sysSchema}.sync_data_status;
+        VACUUM analyze ${dbConfig.sysSchema}.sync_polled;
       """
     jdbcTemplate.update(pooledSql)
+    count
   }
 
   def triggerExists(jdbcTemplate: JdbcTemplate,
