@@ -46,7 +46,7 @@ class DataPoller(sysConfig: SysConfig, dbConfig: DatabaseConfig,
     val dbOpt = DbOperationRegister.dbOpts(dbConfig.`type`)
     val maxPollWait = sysConfig.maxPollWait
     val batchSize = sysConfig.batch
-    logger.info("Start data poller for databasse {}", dbConfig.name)
+    logger.info("Start data poller for database {}", dbConfig.name)
     while (!isInterrupted) {
       try {
         val models = dbOpt.pollBatch(jdbc, dbConfig, batchSize)
