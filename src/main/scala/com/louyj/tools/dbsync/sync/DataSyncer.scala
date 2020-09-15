@@ -145,7 +145,7 @@ class SyncWorker(partition: Int,
                    dbOpts: DbOperation, srcJdbc: JdbcTemplate,
                    schema: String, table: String,
                    sql: String, args: List[Array[AnyRef]], ids: List[Long], hashs: List[Long], reason: String): Unit = {
-    logger.warn(s"Failed sync ${args.size} data for table $table, reason $reason")
+    logger.warn(s"Failed sync ${args.size} data for table $schema.$table[$sourceDb->$targetDb], reason $reason")
     dbOpts.batchAck(srcJdbc, sourceSysSchema, ids, "ERR", reason)
 
     val errorBatch = ErrorBatch(sourceDb, targetDb, schema, table, sql, args, ids, hashs, reason)

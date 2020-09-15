@@ -59,13 +59,13 @@ class ErrorResolver(sysConfig: SysConfig, queueManager: QueueManager, dsPools: D
         try {
           tarJdbc.update(errorBatch.sql, args: _*)
           val ackSql = dbOpt.batchAck(srcJdbc, dbConfig.sysSchema, List(id), "OK", s"success with ${sysConfig.maxRetry - retry.get()} retry")
-          logger.info(s"Successfully retry for ${errorBatch.schema}.${errorBatch.table}[$sourceDb->$targetDb] id $id")
+          logger.info(s"Successfully retry for ${errorBatch.schema}.${errorBatch.table}[$sourceDb->$targetDb] id $id, total retry ${sysConfig.maxRetry - retry.get()}")
           queueManager.resolvedError(partition, hash, id)
           retry.set(0)
         } catch {
           case e: InterruptedException => throw e
           case e: Exception => {
-            val message = s"Retry failed ${errorBatch.schema}.${errorBatch.table}[$sourceDb->$targetDb] id $id, reason ${e.getClass.getSimpleName}-${e.getMessage}"
+            val message = s"Retry failed ${errorBatch.schema}.${errorBatch.table}[$sourceDb->$targetDb] id $id, total retry ${sysConfig.maxRetry - retry.get()}, reason ${e.getClass.getSimpleName}-${e.getMessage}"
             logger.warn(message)
             dbOpt.batchAck(srcJdbc, dbConfig.sysSchema, List(id), "ERR", message)
             TimeUnit.MILLISECONDS.sleep(sysConfig.retryInterval)
