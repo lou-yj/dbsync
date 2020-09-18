@@ -39,3 +39,11 @@ case class ErrorBatch(sourceDb: String, targetDb: String, schema: String, table:
 
 @SerialVersionUID(1L)
 case class BlockedData(blockedBy: Set[Long], data: BatchData)
+
+
+case class SyncTriggerVersion(
+                               schema: String,
+                               table: String,
+                               trigger: String,
+                               function: String
+                             )

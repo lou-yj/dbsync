@@ -4,7 +4,7 @@ import java.nio.charset.StandardCharsets
 
 import com.google.common.hash.Hashing
 import com.louyj.tools.dbsync.config.{DatabaseConfig, SyncConfig, SysConfig}
-import com.louyj.tools.dbsync.sync.{SyncData, SyncDataModel}
+import com.louyj.tools.dbsync.sync.{SyncData, SyncDataModel, SyncTriggerVersion}
 import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.{BeanPropertyRowMapper, JdbcTemplate}
 
@@ -36,7 +36,7 @@ class PgOperation extends DbOperation {
     """
     val rowMapper = BeanPropertyRowMapper.newInstance(classOf[SyncDataModel])
     val result = jdbcTemplate.query(sql, rowMapper).asScala.toList
-    val args = (for (item <- result) yield Array[Object](item.id.asInstanceOf[Object])).toList
+    val args = for (item <- result) yield Array[Object](item.id.asInstanceOf[Object])
     jdbcTemplate.batchUpdate(
       s"""
         insert into ${dbConfig.sysSchema}.sync_polled ("dataId") values (?)
@@ -155,7 +155,7 @@ class PgOperation extends DbOperation {
     } else {
       logger.info("Insert trigger for table {}.{}[{}] not matched, rebuild it", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
       jdbcTemplate.execute(sql)
-      saveTriggerVersion(jdbcTemplate, sysSchema, syncConfig.sourceSchema, syncConfig.sourceTable, insertTrigger, hash)
+      saveTriggerVersion(jdbcTemplate, sysSchema, syncConfig.sourceSchema, syncConfig.sourceTable, insertTrigger, hash, insertFunction)
       logger.info("Insert trigger for table {}.{}[{}] updated", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
     }
   }
@@ -209,7 +209,7 @@ class PgOperation extends DbOperation {
     } else {
       logger.info("Update trigger for table {}.{}[{}] not matched, rebuild it", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
       jdbcTemplate.execute(sql)
-      saveTriggerVersion(jdbcTemplate, sysSchema, syncConfig.sourceSchema, syncConfig.sourceTable, updateTrigger, hash)
+      saveTriggerVersion(jdbcTemplate, sysSchema, syncConfig.sourceSchema, syncConfig.sourceTable, updateTrigger, hash, updateFunction)
       logger.info("Update trigger for table {}.{}[{}] updated", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
     }
   }
@@ -262,7 +262,7 @@ class PgOperation extends DbOperation {
     } else {
       logger.info("Delete trigger for table {}.{}[{}] not matched, rebuild it", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
       jdbcTemplate.execute(sql)
-      saveTriggerVersion(jdbcTemplate, sysSchema, syncConfig.sourceSchema, syncConfig.sourceTable, deleteTrigger, hash)
+      saveTriggerVersion(jdbcTemplate, sysSchema, syncConfig.sourceSchema, syncConfig.sourceTable, deleteTrigger, hash, deleteFunction)
       logger.info("Delete trigger for table {}.{}[{}] updated", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
     }
   }
@@ -338,6 +338,7 @@ class PgOperation extends DbOperation {
             "table" varchar(512),
             "trigger" varchar(512),
             "version" varchar(512),
+            "function" varchar(512),
             "createTime" TIMESTAMP not null default CURRENT_TIMESTAMP,
             PRIMARY KEY ("schema","table","trigger")
          );
@@ -420,17 +421,17 @@ class PgOperation extends DbOperation {
 
   def saveTriggerVersion(jdbcTemplate: JdbcTemplate, sysSchema: String,
                          schema: String, table: String, trigger: String,
-                         version: String) = {
+                         version: String, function: String) = {
     val sql =
       s"""
         insert into $sysSchema.sync_trigger_version
-        ("schema","table","trigger","version")
+        ("schema","table","trigger","version","function")
         values
-        (?,?,?,?)
+        (?,?,?,?,?)
         ON CONFLICT ("schema","table","trigger")
-        DO UPDATE SET "version"=EXCLUDED."version"
+        DO UPDATE SET "version"=EXCLUDED."version","function"=EXCLUDED."function"
     """
-    jdbcTemplate.update(sql, Array[AnyRef](schema, table, trigger, version): _*)
+    jdbcTemplate.update(sql, Array[AnyRef](schema, table, trigger, version, function): _*)
     ()
   }
 
@@ -474,6 +475,35 @@ class PgOperation extends DbOperation {
     """
     val num = jdbcTemplate.queryForObject(sql, Array[AnyRef](schema, table, indexColumns), classOf[Long])
     num > 0
+  }
+
+  override def listTriggers(dbConfig: DatabaseConfig, jdbcTemplate: JdbcTemplate): List[SyncTriggerVersion] = {
+    val sql =
+      s"""
+           select * from ${dbConfig.sysSchema}.sync_trigger_version
+         """
+    val rowMapper = BeanPropertyRowMapper.newInstance(classOf[SyncTriggerVersion])
+    jdbcTemplate.query(sql, rowMapper).asScala.toList
+  }
+
+  override def deleteTrigger(dbConfig: DatabaseConfig, jdbcTemplate: JdbcTemplate,
+                             schema: String, table: String, trigger: String, function: String): Unit = {
+    val sql =
+      s"""
+          drop trigger if exists $trigger on $schema.$table;
+          drop function if exists $function;
+        """
+    try {
+      jdbcTemplate.update(sql)
+    } catch {
+      case e: Exception => logger.warn(s"Drop trigger $trigger for table $schema.$table failed, reason ${e.getClass.getName}-${e.getMessage}")
+    }
+    val delSql =
+      s"""
+         delete from ${dbConfig.sysSchema}.sync_trigger_version
+          where "schema"=? and "table"=? and "trigger"=?;
+       """
+    jdbcTemplate.update(delSql, Array[Object](schema, table, trigger))
   }
 
   def createUniqueIndex(jdbcTemplate: JdbcTemplate,

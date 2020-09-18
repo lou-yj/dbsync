@@ -51,7 +51,25 @@ trait TriggerSync {
 
   }
 
-  def syncTrigger(srcDbConfig: DatabaseConfig, tarDbConfig: DatabaseConfig, dsPools: DatasourcePools, syncConfig: SyncConfig) = {
+
+  def cleanTrigger(dsPools: DatasourcePools, dbConfig: DatabaseConfig, syncConfigs: List[SyncConfig]) = {
+    logger.info(s"Start clean trigger for ${dbConfig.name}")
+    val syncSet = syncConfigs.filter(_.sourceDb == dbConfig.name).map(sync => s"${sync.sourceSchema}:${sync.sourceTable}").toSet
+    val dbOpt = dbOpts(dbConfig.`type`)
+    val jdbc = dsPools.jdbcTemplate(dbConfig.name)
+    dbOpt.listTriggers(dbConfig, jdbc).foreach(st => {
+      val key = s"${st.schema}:${st.table}"
+      if (!syncSet.contains(key)) {
+        logger.info(s"Config for table ${st.schema}.${st.table}[${dbConfig.name}] not exists, delete trigger ${st.trigger}")
+        dbOpt.deleteTrigger(dbConfig, jdbc, st.schema, st.table, st.trigger, st.function)
+        logger.info(s"Trigger ${st.trigger} for table ${st.schema}.${st.table}[${dbConfig.name}] deleted")
+      }
+    })
+    logger.info(s"Finished clean trigger for ${dbConfig.name}")
+  }
+
+  def syncTrigger(srcDbConfig: DatabaseConfig, tarDbConfig: DatabaseConfig,
+                  dsPools: DatasourcePools, syncConfig: SyncConfig) = {
     val srcDbName = syncConfig.sourceDb
     val srcDbOpt = dbOpts(srcDbConfig.`type`)
     val srcJdbc = dsPools.jdbcTemplate(srcDbName)
@@ -92,7 +110,7 @@ trait TriggerSync {
     if (tarDbConfig.createIndex) {
       check.apply(tarDbOpt.tableExists(tarJdbc, syncConfig.targetSchema, syncConfig.targetTable))
     } else {
-      logger.info(s"Create index for ${tarDbName} disabled.")
+      logger.info(s"Create index for $tarDbName disabled.")
     }
   }
 

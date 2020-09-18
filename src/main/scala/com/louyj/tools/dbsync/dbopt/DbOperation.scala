@@ -1,7 +1,7 @@
 package com.louyj.tools.dbsync.dbopt
 
 import com.louyj.tools.dbsync.config.{DatabaseConfig, SyncConfig, SysConfig}
-import com.louyj.tools.dbsync.sync.{SyncData, SyncDataModel}
+import com.louyj.tools.dbsync.sync.{SyncData, SyncDataModel, SyncTriggerVersion}
 import org.springframework.jdbc.core.JdbcTemplate
 
 /**
@@ -40,6 +40,11 @@ trait DbOperation {
   def uniqueIndexExists(jdbcTemplate: JdbcTemplate, schema: String, table: String, indexColumns: String): Boolean
 
   def batchAck(jdbcTemplate: JdbcTemplate, sysSchema: String, ids: List[Long], status: String, message: String = ""): Array[Int]
+
+  def listTriggers(dbConfig: DatabaseConfig, jdbcTemplate: JdbcTemplate): List[SyncTriggerVersion]
+
+  def deleteTrigger(dbConfig: DatabaseConfig, jdbcTemplate: JdbcTemplate, schema: String, table: String, trigger: String, function: String): Unit
+
 }
 
 

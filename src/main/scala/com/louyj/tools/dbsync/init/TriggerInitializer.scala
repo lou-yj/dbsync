@@ -22,6 +22,7 @@ class TriggerInitializer(srcDbConfig: DatabaseConfig, dbconfigs: Map[String, Dat
   logger.info(s"Start check trigger status for ${srcDbConfig.name}")
   syncConfigs.filter(_.sourceDb == srcDbConfig.name).foreach(buildTrigger)
   logger.info(s"Finish check trigger status for ${srcDbConfig.name}")
+  cleanTrigger(dsPools, srcDbConfig, syncConfigs)
 
 
   def buildTrigger(syncConfig: SyncConfig) = {
