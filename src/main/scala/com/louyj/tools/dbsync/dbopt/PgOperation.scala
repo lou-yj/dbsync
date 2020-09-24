@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets
 
 import com.google.common.hash.Hashing
 import com.louyj.tools.dbsync.config.{DatabaseConfig, SyncConfig, SysConfig}
+import com.louyj.tools.dbsync.endpoint.SyncState
 import com.louyj.tools.dbsync.sync.{SyncData, SyncDataModel, SyncTriggerVersion}
 import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.{BeanPropertyRowMapper, JdbcTemplate}
@@ -504,6 +505,46 @@ class PgOperation extends DbOperation {
           where "schema"=? and "table"=? and "trigger"=?;
        """
     jdbcTemplate.update(delSql, Array[Object](schema, table, trigger))
+  }
+
+  override def syncState(dbConfig: DatabaseConfig,
+                         jdbcTemplate: JdbcTemplate): SyncState = {
+    val pendingSql =
+      s"""
+         select count(1) from ${dbConfig.sysSchema}.sync_data d
+         left join ${dbConfig.sysSchema}.sync_data_status s
+         on d.id =s."dataId" where s."dataId" is null
+       """
+    val pending = jdbcTemplate.queryForObject(pendingSql, classOf[Long])
+    val blockedSql =
+      s"""
+         select count(1) from ${dbConfig.sysSchema}.sync_data d
+         left join ${dbConfig.sysSchema}.sync_data_status s
+         on d.id =s."dataId" where s."status" ='BLK'
+       """
+    val blocked = jdbcTemplate.queryForObject(blockedSql, classOf[Long])
+    val errorSql =
+      s"""
+         select count(1) from ${dbConfig.sysSchema}.sync_data d
+         left join ${dbConfig.sysSchema}.sync_data_status s
+         on d.id =s."dataId" where s."status" ='ERR'
+       """
+    val error = jdbcTemplate.queryForObject(errorSql, classOf[Long])
+    val successSql =
+      s"""
+         select count(1) from ${dbConfig.sysSchema}.sync_data d
+         left join ${dbConfig.sysSchema}.sync_data_status s
+         on d.id =s."dataId" where s."status" ='OK'
+       """
+    val success = jdbcTemplate.queryForObject(successSql, classOf[Long])
+    val othersSql =
+      s"""
+         select count(1) from ${dbConfig.sysSchema}.sync_data d
+         left join ${dbConfig.sysSchema}.sync_data_status s
+         on d.id =s."dataId" where s."status" not in ('OK','ERR','BLK')
+       """
+    val others = jdbcTemplate.queryForObject(othersSql, classOf[Long])
+    SyncState(dbConfig.name, pending, blocked, error, success, others)
   }
 
   def createUniqueIndex(jdbcTemplate: JdbcTemplate,

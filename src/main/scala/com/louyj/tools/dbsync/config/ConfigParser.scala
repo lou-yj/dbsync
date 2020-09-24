@@ -82,6 +82,7 @@ class ConfigParser(stream: InputStream) {
     if (sysConfig.syncTriggerInterval == 0) sysConfig.syncTriggerInterval = 1800000
     if (isBlank(sysConfig.workDirectory)) sysConfig.workDirectory = "."
     if (isBlank(sysConfig.stateDirectory)) sysConfig.stateDirectory = "status"
+    if (sysConfig.endpointPort == 0) sysConfig.endpointPort = 8080
     sysConfig
   }
 

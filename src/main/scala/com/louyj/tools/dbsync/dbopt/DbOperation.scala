@@ -1,6 +1,7 @@
 package com.louyj.tools.dbsync.dbopt
 
 import com.louyj.tools.dbsync.config.{DatabaseConfig, SyncConfig, SysConfig}
+import com.louyj.tools.dbsync.endpoint.SyncState
 import com.louyj.tools.dbsync.sync.{SyncData, SyncDataModel, SyncTriggerVersion}
 import org.springframework.jdbc.core.JdbcTemplate
 
@@ -44,6 +45,8 @@ trait DbOperation {
   def listTriggers(dbConfig: DatabaseConfig, jdbcTemplate: JdbcTemplate): List[SyncTriggerVersion]
 
   def deleteTrigger(dbConfig: DatabaseConfig, jdbcTemplate: JdbcTemplate, schema: String, table: String, trigger: String, function: String): Unit
+
+  def syncState(dbConfig: DatabaseConfig, jdbcTemplate: JdbcTemplate): SyncState
 
 }
 
