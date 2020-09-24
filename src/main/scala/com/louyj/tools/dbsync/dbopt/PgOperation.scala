@@ -287,7 +287,9 @@ class PgOperation extends DbOperation {
         s"""
           drop table if exists $schema.sync_data CASCADE;
           drop sequence if exists $schema.seq_sync_data CASCADE;
-          create sequence $schema.seq_sync_data start 1;
+          drop sequence if exists $schema.seq_sync_data_partition cascade;
+          create sequence $schema.seq_sync_data start 1 CYCLE;
+          create sequence $schema.seq_sync_data_partition start 1 CYCLE;
           create table $schema.sync_data
          (
             "id" bigint not null DEFAULT(nextval('$schema.seq_sync_data')) PRIMARY KEY,
@@ -297,6 +299,7 @@ class PgOperation extends DbOperation {
             "table" varchar(512),
             "operation" varchar(10),
             "data" text,
+            "partition" int not null default mod(nextval('$schema.seq_sync_data_partition'),1000),
             "createTime" TIMESTAMP not null default CURRENT_TIMESTAMP
          );
         """
