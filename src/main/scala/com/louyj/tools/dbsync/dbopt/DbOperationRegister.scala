@@ -10,7 +10,9 @@ package com.louyj.tools.dbsync.dbopt
 object DbOperationRegister {
 
   val pgOpt = new PgOperation
+  val mysqlOpt = new MysqlOperation
 
-  val dbOpts = Map(pgOpt.name() -> pgOpt)
+  val dbOpts = Map(pgOpt.name() -> pgOpt,
+    mysqlOpt.name() -> mysqlOpt)
 
 }
