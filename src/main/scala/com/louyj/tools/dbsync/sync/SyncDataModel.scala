@@ -41,9 +41,9 @@ case class ErrorBatch(sourceDb: String, targetDb: String, schema: String, table:
 case class BlockedData(blockedBy: Set[Long], data: BatchData)
 
 
-case class SyncTriggerVersion(
-                               schema: String,
-                               table: String,
-                               trigger: String,
-                               function: String
-                             )
+class SyncTriggerVersion {
+  @BeanProperty var schema: String = _
+  @BeanProperty var table: String = _
+  @BeanProperty var trigger: String = _
+  @BeanProperty var function: String = _
+}

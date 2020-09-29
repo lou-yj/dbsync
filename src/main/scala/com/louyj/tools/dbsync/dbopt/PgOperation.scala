@@ -547,8 +547,8 @@ class PgOperation extends DbOperation {
     SyncState(dbConfig.name, pending, blocked, error, success, others)
   }
 
-  def createUniqueIndex(jdbcTemplate: JdbcTemplate,
-                        schema: String, table: String, indexColumns: String): Unit = {
+  override def createUniqueIndex(jdbcTemplate: JdbcTemplate,
+                                 schema: String, table: String, indexColumns: String): Unit = {
     val sql =
       s"""
      create unique index on $schema.$table($indexColumns)

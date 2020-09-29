@@ -48,6 +48,9 @@ trait DbOperation {
 
   def syncState(dbConfig: DatabaseConfig, jdbcTemplate: JdbcTemplate): SyncState
 
+  def createUniqueIndex(jdbcTemplate: JdbcTemplate,
+                        schema: String, table: String, indexColumns: String): Unit
+
 }
 
 

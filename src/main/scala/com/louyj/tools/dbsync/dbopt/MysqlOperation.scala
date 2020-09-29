@@ -124,26 +124,27 @@ class MysqlOperation extends DbOperation {
       s"""
         insert into $sysSchema.sync_data (`sourceDb`,`targetDb`,`schema`,`table`,`operation`,`data`)
         values
-        ('${syncConfig.sourceDb}',$targetDb,'${syncConfig.sourceSchema}','${syncConfig.sourceTable}','$operation',JSON_OBJECT($objectToJsonArgs))
+        ('${syncConfig.sourceDb}','$targetDb','${syncConfig.sourceSchema}','${syncConfig.sourceTable}','$operation',JSON_OBJECT($objectToJsonArgs))
       """).mkString(";")
     val sql =
-      s"""
-        DROP TRIGGER IF EXISTS ${syncConfig.sourceSchema}.$triggerName;
+      Array(
+        s"DROP TRIGGER IF EXISTS ${syncConfig.sourceSchema}.$triggerName;",
+        s"""
         CREATE TRIGGER ${syncConfig.sourceSchema}.$triggerName
         AFTER $triggerAction ON ${syncConfig.sourceSchema}.${syncConfig.sourceTable}
         FOR EACH ROW
         BEGIN
           if $triggerCondition then
-            $appendDataSql
+            $appendDataSql;
           end if;
         END;
-      """
-    val hash = Hashing.murmur3_32().newHasher.putString(sql, StandardCharsets.UTF_8).hash().toString
+      """)
+    val hash = Hashing.murmur3_32().newHasher.putString(sql.mkString(","), StandardCharsets.UTF_8).hash().toString
     if (triggerExists(jdbcTemplate, sysSchema, syncConfig.sourceSchema, syncConfig.sourceTable, triggerName, hash)) {
       logger.debug("Insert trigger for table {}.{}[{}] already exists and matched", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
     } else {
       logger.info("Insert trigger for table {}.{}[{}] not matched, rebuild it", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
-      jdbcTemplate.execute(sql)
+      jdbcTemplate.batchUpdate(sql: _*)
       saveTriggerVersion(jdbcTemplate, sysSchema, syncConfig.sourceSchema, syncConfig.sourceTable, triggerName, hash, "")
       logger.info("Insert trigger for table {}.{}[{}] updated", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
     }
@@ -167,26 +168,26 @@ class MysqlOperation extends DbOperation {
       s"""
         insert into $sysSchema.sync_data (`sourceDb`,`targetDb`,`schema`,`table`,`operation`,`data`)
         values
-        ('${syncConfig.sourceDb}',$targetDb,'${syncConfig.sourceSchema}','${syncConfig.sourceTable}','$operation',JSON_OBJECT($objectToJsonArgs))
+        ('${syncConfig.sourceDb}','$targetDb','${syncConfig.sourceSchema}','${syncConfig.sourceTable}','$operation',JSON_OBJECT($objectToJsonArgs))
       """).mkString(";")
-    val sql =
+    val sql = Array(
+      s"DROP TRIGGER IF EXISTS ${syncConfig.sourceSchema}.$triggerName;",
       s"""
-        DROP TRIGGER IF EXISTS ${syncConfig.sourceSchema}.$triggerName;
         CREATE TRIGGER ${syncConfig.sourceSchema}.$triggerName
         AFTER $triggerAction ON ${syncConfig.sourceSchema}.${syncConfig.sourceTable}
         FOR EACH ROW
         BEGIN
           if $triggerCondition then
-            $appendDataSql
+            $appendDataSql;
           end if;
         END;
-      """
-    val hash = Hashing.murmur3_32().newHasher.putString(sql, StandardCharsets.UTF_8).hash().toString
+      """)
+    val hash = Hashing.murmur3_32().newHasher.putString(sql.mkString(","), StandardCharsets.UTF_8).hash().toString
     if (triggerExists(jdbcTemplate, sysSchema, syncConfig.sourceSchema, syncConfig.sourceTable, triggerName, hash)) {
       logger.debug("Update trigger for table {}.{}[{}] already exists and matched", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
     } else {
       logger.info("Update trigger for table {}.{}[{}] not matched, rebuild it", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
-      jdbcTemplate.execute(sql)
+      jdbcTemplate.batchUpdate(sql: _*)
       saveTriggerVersion(jdbcTemplate, sysSchema, syncConfig.sourceSchema, syncConfig.sourceTable, triggerName, hash, "")
       logger.info("Update trigger for table {}.{}[{}] updated", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
     }
@@ -209,26 +210,26 @@ class MysqlOperation extends DbOperation {
       s"""
         insert into $sysSchema.sync_data (`sourceDb`,`targetDb`,`schema`,`table`,`operation`,`data`)
         values
-        ('${syncConfig.sourceDb}',$targetDb,'${syncConfig.sourceSchema}','${syncConfig.sourceTable}','$operation',JSON_OBJECT($objectToJsonArgs))
+        ('${syncConfig.sourceDb}','$targetDb','${syncConfig.sourceSchema}','${syncConfig.sourceTable}','$operation',JSON_OBJECT($objectToJsonArgs))
       """).mkString(";")
-    val sql =
+    val sql = Array(
+      s"DROP TRIGGER IF EXISTS ${syncConfig.sourceSchema}.$triggerName;",
       s"""
-        DROP TRIGGER IF EXISTS ${syncConfig.sourceSchema}.$triggerName;
         CREATE TRIGGER ${syncConfig.sourceSchema}.$triggerName
         AFTER $triggerAction ON ${syncConfig.sourceSchema}.${syncConfig.sourceTable}
         FOR EACH ROW
         BEGIN
           if $triggerCondition then
-            $appendDataSql
+            $appendDataSql;
           end if;
         END;
-      """
-    val hash = Hashing.murmur3_32().newHasher.putString(sql, StandardCharsets.UTF_8).hash().toString
+      """)
+    val hash = Hashing.murmur3_32().newHasher.putString(sql.mkString(","), StandardCharsets.UTF_8).hash().toString
     if (triggerExists(jdbcTemplate, sysSchema, syncConfig.sourceSchema, syncConfig.sourceTable, triggerName, hash)) {
       logger.debug("Delete trigger for table {}.{}[{}] already exists and matched", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
     } else {
       logger.info("Delete trigger for table {}.{}[{}] not matched, rebuild it", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
-      jdbcTemplate.execute(sql)
+      jdbcTemplate.batchUpdate(sql: _*)
       saveTriggerVersion(jdbcTemplate, sysSchema, syncConfig.sourceSchema, syncConfig.sourceTable, triggerName, hash, "")
       logger.info("Delete trigger for table {}.{}[{}] updated", syncConfig.sourceSchema, syncConfig.sourceTable, dbName)
     }
@@ -249,7 +250,7 @@ class MysqlOperation extends DbOperation {
       logger.info("System table {}.{}[{}] already exists", schema, table, dbName)
     } else {
       logger.info("System table {}.{}[{}] not exists, rebuild it", schema, table, dbName)
-      val sql =
+      jdbcTemplate.batchUpdate(
         s"""
           drop table if exists $schema.sync_data CASCADE;
           create table $schema.sync_data
@@ -262,9 +263,8 @@ class MysqlOperation extends DbOperation {
             `operation` varchar(10),
             `data` text,
             `createTime` TIMESTAMP not null default CURRENT_TIMESTAMP
-         );
-        """
-      jdbcTemplate.execute(sql)
+         )
+        """.split(";"): _*)
       logger.info("System table {}.{}[{}] updated", schema, table, dbName)
     }
     table = "sync_data_status"
@@ -272,7 +272,7 @@ class MysqlOperation extends DbOperation {
       logger.info("System table {}.{}[{}] already exists", schema, table, dbName)
     } else {
       logger.info("System table {}.{}[{}] not exists, rebuild it", schema, table, dbName)
-      val sql =
+      jdbcTemplate.batchUpdate(
         s"""
           drop table if exists $schema.sync_data_status CASCADE;
           create table $schema.sync_data_status
@@ -284,9 +284,8 @@ class MysqlOperation extends DbOperation {
             `createTime` TIMESTAMP not null default CURRENT_TIMESTAMP,
             index(`dataId`,`status`),
             unique index(`dataId`)
-         );
-        """
-      jdbcTemplate.execute(sql)
+         )
+        """.split(";"): _*)
       logger.info("System table {}.{}[{}] updated", schema, table, dbName)
     }
     table = "sync_trigger_version"
@@ -294,21 +293,20 @@ class MysqlOperation extends DbOperation {
       logger.info("System table {}.{}[{}] already exists", schema, table, dbName)
     } else {
       logger.info("System table {}.{}[{}] not exists, rebuild it", schema, table, dbName)
-      val sql =
+      jdbcTemplate.batchUpdate(
         s"""
           drop table if exists $schema.sync_trigger_version CASCADE ;
           create table $schema.sync_trigger_version
          (
-            `schema` varchar(512),
-            `table` varchar(512),
+            `schema` varchar(128),
+            `table` varchar(128),
             `trigger` varchar(512),
             `version` varchar(512),
             `function` varchar(512),
             `createTime` TIMESTAMP not null default CURRENT_TIMESTAMP,
             PRIMARY KEY (`schema`,`table`,`trigger`)
-         );
-        """
-      jdbcTemplate.execute(sql)
+         )
+        """.split(";"): _*)
       logger.info("System table {}.{}[{}] updated", schema, table, dbName)
     }
     table = "sync_polled"
@@ -316,7 +314,7 @@ class MysqlOperation extends DbOperation {
       logger.info("System table {}.{}[{}] already exists", schema, table, dbName)
     } else {
       logger.info("System table {}.{}[{}] not exists, rebuild it", schema, table, dbName)
-      val sql =
+      jdbcTemplate.batchUpdate(
         s"""
           drop table if exists $schema.sync_polled CASCADE ;
           create table $schema.sync_polled
@@ -324,9 +322,8 @@ class MysqlOperation extends DbOperation {
             `dataId` bigint REFERENCES $schema.sync_data(id) ON UPDATE CASCADE ON DELETE CASCADE,
             `createTime` TIMESTAMP not null default CURRENT_TIMESTAMP,
             PRIMARY KEY (`dataId`)
-         );
-        """
-      jdbcTemplate.execute(sql)
+         )
+        """.split(";"): _*)
       logger.info("System table {}.{}[{}] updated", schema, table, dbName)
     }
   }
@@ -345,9 +342,9 @@ class MysqlOperation extends DbOperation {
         OPTIMIZE TABLE ${dbConfig.sysSchema}.sync_data;
         OPTIMIZE TABLE ${dbConfig.sysSchema}.sync_data_status;
         OPTIMIZE TABLE ${dbConfig.sysSchema}.sync_trigger_version;
-        OPTIMIZE TABLE ${dbConfig.sysSchema}.sync_polled;
+        OPTIMIZE TABLE ${dbConfig.sysSchema}.sync_polled
       """
-    jdbcTemplate.update(vacuumSql)
+    jdbcTemplate.batchUpdate(vacuumSql.split(";"): _*)
     count
   }
 
@@ -363,9 +360,9 @@ class MysqlOperation extends DbOperation {
         delete from ${dbConfig.sysSchema}.sync_polled;
         insert into ${dbConfig.sysSchema}.sync_polled(`dataId`)
         select `dataId` from ${dbConfig.sysSchema}.sync_data_status;
-        OPTIMIZE TABLE ${dbConfig.sysSchema}.sync_polled;
+        OPTIMIZE TABLE ${dbConfig.sysSchema}.sync_polled
       """
-    jdbcTemplate.update(pooledSql)
+    jdbcTemplate.batchUpdate(pooledSql.split(";"): _*)
     count
   }
 

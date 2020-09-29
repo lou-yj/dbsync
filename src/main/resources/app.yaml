@@ -10,29 +10,30 @@ sys:
 
 
 db:
-  - name: pgdata
+  - name: db1
     type: postgresql
     driver: org.postgresql.Driver
-    url: jdbc:postgresql://app-dev-01:21769/pgdata
-    user: xxx
-    password: xxx
+    url: jdbc:postgresql://192.168.0.130:5432/test
+    user: postgres
+    password: postgres!23$
     sysSchema: dbsync
     createIndex: true
-  - name: srv
-    type: postgresql
-    driver: org.postgresql.Driver
-    url: jdbc:postgresql://app-dev-01:21769/srv_directory
-    user: xxx
-    password: xxx
+  - name: db2
+    type: mysql
+    driver: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://192.168.0.130:3306/test?useUnicode=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=UTC
+    #    url: jdbc:mysql://192.168.0.130:3306/test?allowMultiQueries=true&useUnicode=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=UTC
+    user: root
+    password: mysql!23$
     sysSchema: dbsync
     createIndex: true
 
 sync:
-  - sourceDb: pgdata
-    targetDb: srv
-    sourceSchema: dbsync
+  - sourceDb: db2
+    targetDb: db1
+    sourceSchema: test
     sourceTable: test01
-    sourceKeys: source,part_name,sub_chain
-    insertCondition: NEW.is_commit=1
-    updateCondition: NEW.is_commit=1
-    deleteCondition: OLD.is_commit=1
+    sourceKeys: f1,f2
+#    insertCondition: NEW.is_commit=1
+#    updateCondition: NEW.is_commit=1
+#    deleteCondition: OLD.is_commit=1
