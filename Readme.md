@@ -1,4 +1,4 @@
-#总体架构
+# 总体架构
 
 ![title](dbsync.png)
 
