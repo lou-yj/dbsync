@@ -14,16 +14,16 @@ db:
     type: postgresql
     driver: org.postgresql.Driver
     url: jdbc:postgresql://app-dev-01:21769/pgdata
-    user: pgdata
-    password: Mingjueinfo2015_db
+    user: xxx
+    password: xxx
     sysSchema: dbsync
     createIndex: true
   - name: srv
     type: postgresql
     driver: org.postgresql.Driver
     url: jdbc:postgresql://app-dev-01:21769/srv_directory
-    user: pgdata
-    password: Mingjueinfo2015_db
+    user: xxx
+    password: xxx
     sysSchema: dbsync
     createIndex: true
 
@@ -33,3 +33,6 @@ sync:
     sourceSchema: dbsync
     sourceTable: test01
     sourceKeys: source,part_name,sub_chain
+    insertCondition: NEW.is_commit=1
+    updateCondition: NEW.is_commit=1
+    deleteCondition: OLD.is_commit=1
