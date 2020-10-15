@@ -19,13 +19,13 @@
 ## 相关文档
 
 
-![快速入门](doc/quickstart.cn.md)
+[快速入门](doc/quickstart.cn.md)
 
-![配置说明](doc/configuration.cn.md)
+[配置说明](doc/configuration.cn.md)
 
-![架构及实现原理](doc/architecture.cn.md)
+[架构及实现原理](doc/architecture.cn.md)
 
-![系统表定义](doc/systable.cn.md)
+[系统表定义](doc/systable.cn.md)
 
 
 

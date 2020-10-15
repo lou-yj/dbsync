@@ -2,7 +2,7 @@
 
 ## 下载release包
 
-进入![release页面](https://github.com/lou-yj/dbsync/releases)下载最新的发布包。解压后目录结构如下：
+进入 [release页面](https://github.com/lou-yj/dbsync/releases)下载最新的发布包。解压后目录结构如下：
 
 ```
 .
@@ -38,7 +38,7 @@ cp app-demo.yaml app.yaml
 
 如数据库信息不一致需要修改配置文件中相关数据库信息
 
-详细配置请参考![配置说明](configuration.cn.md)
+详细配置请参考 [配置说明](configuration.cn.md)
 
 
 ## 创建同步表
