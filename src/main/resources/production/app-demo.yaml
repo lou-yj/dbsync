@@ -6,24 +6,23 @@ sys:
   syncTriggerInterval: 60000
   retryInterval: 60000
   dataKeepHours: 24
-  workDirectory: "/temp"
 
 
 db:
   - name: db1
     type: postgresql
     driver: org.postgresql.Driver
-    url: jdbc:postgresql://x.x.x.x:5432/test
-    user: postgres
-    password: xxx
+    url: jdbc:postgresql://127.0.0.1:5432/test
+    user: admin
+    password: password
     sysSchema: dbsync
     createIndex: true
   - name: db2
     type: mysql
     driver: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://x.x.x.x:3306/test
-    user: root
-    password: xxx
+    url: jdbc:mysql://127.0.0.1:3306/test
+    user: admin
+    password: password
     sysSchema: dbsync
     createIndex: true
 
@@ -33,6 +32,3 @@ sync:
     sourceSchema: test
     sourceTable: test01
     sourceKeys: f1,f2
-    insertCondition: NEW.is_commit=1
-    updateCondition: NEW.is_commit=1
-    deleteCondition: OLD.is_commit=1
