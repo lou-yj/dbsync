@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.louyj.tools</groupId>
+    <groupId>com.louyj</groupId>
     <artifactId>dbsync</artifactId>
     <version>1.0</version>
 
@@ -180,10 +180,16 @@
             </plugin>
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
+                <!--                <configuration>-->
+                <!--                    <descriptorRefs>-->
+                <!--                        <descriptorRef>jar-with-dependencies</descriptorRef>-->
+                <!--                    </descriptorRefs>-->
+                <!--                </configuration>-->
                 <configuration>
-                    <descriptorRefs>
-                        <descriptorRef>jar-with-dependencies</descriptorRef>
-                    </descriptorRefs>
+                    <appendAssemblyId>false</appendAssemblyId>
+                    <descriptors>
+                        <descriptor>src/main/resources/assembly.xml</descriptor>
+                    </descriptors>
                 </configuration>
                 <executions>
                     <execution>
