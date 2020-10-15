@@ -3,6 +3,7 @@ package com.louyj.tools.dbsync
 import java.io.FileInputStream
 
 import com.louyj.tools.dbsync.config.ConfigParser
+import com.louyj.tools.dbsync.endpoint.Endpoints
 import com.louyj.tools.dbsync.init.{DatabaseInitializer, TriggerInitializer}
 import com.louyj.tools.dbsync.job.{BootstrapTriggerSync, CleanWorker, JobScheduler}
 import com.louyj.tools.dbsync.sync._
@@ -48,6 +49,7 @@ object DbSyncLanucher {
       threads += new DataPoller(sysConfig, dbConfig, jdbc, queueManager, syncConfigsMap)
     })
     new JobScheduler(dsPools, sysConfig, dbConfigs, dbconfigsMap, syncConfigs)
+    new Endpoints(sysConfig, dbConfigs, dsPools)
     logger.info("Application lanuched")
     threads.foreach(_.join())
 

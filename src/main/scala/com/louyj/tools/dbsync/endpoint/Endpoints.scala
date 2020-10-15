@@ -22,7 +22,9 @@ class Endpoints(sysConfig: SysConfig, dbConfigs: List[DatabaseConfig], dsPools: 
   jackson.registerModule(DefaultScalaModule)
 
   logger.info(s"Endpoints listen on ${sysConfig.endpointPort}")
-  val app = Javalin.create.start(sysConfig.endpointPort)
+  val app = Javalin.create(config => {
+    config.showJavalinBanner = false
+  }).start(sysConfig.endpointPort)
 
   app.get("/sync-status", ctx => {
     val result = dbConfigs.map(dbConfig => {
