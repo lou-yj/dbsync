@@ -180,11 +180,28 @@
             </plugin>
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
-                <!--                <configuration>-->
-                <!--                    <descriptorRefs>-->
-                <!--                        <descriptorRef>jar-with-dependencies</descriptorRef>-->
-                <!--                    </descriptorRefs>-->
-                <!--                </configuration>-->
+                <configuration>
+                    <descriptorRefs>
+                        <descriptorRef>jar-with-dependencies</descriptorRef>
+                    </descriptorRefs>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>make-assembly</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!--<plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+                &lt;!&ndash;                <configuration>&ndash;&gt;
+                &lt;!&ndash;                    <descriptorRefs>&ndash;&gt;
+                &lt;!&ndash;                        <descriptorRef>jar-with-dependencies</descriptorRef>&ndash;&gt;
+                &lt;!&ndash;                    </descriptorRefs>&ndash;&gt;
+                &lt;!&ndash;                </configuration>&ndash;&gt;
                 <configuration>
                     <appendAssemblyId>false</appendAssemblyId>
                     <descriptors>
@@ -200,7 +217,7 @@
                         </goals>
                     </execution>
                 </executions>
-            </plugin>
+            </plugin>-->
         </plugins>
     </build>
 
