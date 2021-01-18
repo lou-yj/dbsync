@@ -20,14 +20,17 @@ class CleanWorker(dsPools: DatasourcePools,
 
   val logger = LoggerFactory.getLogger(getClass)
 
-
   override def run(): Unit = {
     def cleanFun = (dbConfig: DatabaseConfig) => {
-      logger.info(s"Start clean system tables for ${dbConfig.name}")
-      val jdbcTemplate = dsPools.jdbcTemplate(dbConfig.name)
-      val dbOpt = DbOperationRegister.dbOpts(dbConfig.`type`)
-      val count = dbOpt.cleanSysTable(jdbcTemplate, dbConfig, sysConfig.dataKeepHours)
-      logger.info(s"Finish clean system tables for ${dbConfig.name}, cleaned $count datas")
+      try {
+        logger.info(s"Start clean system tables for ${dbConfig.name}")
+        val jdbcTemplate = dsPools.jdbcTemplate(dbConfig.name)
+        val dbOpt = DbOperationRegister.dbOpts(dbConfig.`type`)
+        val count = dbOpt.cleanSysTable(jdbcTemplate, dbConfig, sysConfig.dataKeepHours)
+        logger.info(s"Finish clean system tables for ${dbConfig.name}, cleaned $count datas")
+      } catch {
+        case e => logger.warn("Clean task failed.", e)
+      }
     }
 
     dbConfigs.foreach(cleanFun)

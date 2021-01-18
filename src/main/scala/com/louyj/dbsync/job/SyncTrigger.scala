@@ -25,10 +25,14 @@ class SyncTrigger(dsPools: DatasourcePools, dbConfigs: List[DatabaseConfig],
   override def run(): Unit = {
     for (dbconfig <- dbConfigs;
          syncConfig <- syncConfigs if syncConfig.sourceDb == dbconfig.name) {
-      syncConfig.targetDb.split(",").foreach(targetdb => {
-        val tarDbConfig = dbconfigsMap(targetdb)
-        syncTrigger(dbconfig, tarDbConfig, dsPools, syncConfig)
-      })
+      try {
+        syncConfig.targetDb.split(",").foreach(targetdb => {
+          val tarDbConfig = dbconfigsMap(targetdb)
+          syncTrigger(dbconfig, tarDbConfig, dsPools, syncConfig)
+        })
+      } catch {
+        case e => logger.warn("Sync trigger job failed.", e);
+      }
     }
   }
 
