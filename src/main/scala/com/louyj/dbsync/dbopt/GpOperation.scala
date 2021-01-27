@@ -47,7 +47,12 @@ class GpOperation extends PgOperation {
            end if;
         end $dollar;
        """
-    (sql, (setValueBuffer ++ whereValueBuffer ++ valueBuffer).toArray)
+    val allValueBuffer = new ListBuffer[AnyRef]
+    allValueBuffer.appendAll(setValueBuffer)
+    allValueBuffer.appendAll(whereValueBuffer)
+    allValueBuffer.appendAll(valueBuffer)
+    logger.info("Params size " + allValueBuffer.toArray.length)
+    (sql, allValueBuffer.toArray)
   }
 
   override def batchAck(jdbc: JdbcTemplate, sysSchema: String, ids: List[Long], status: String, message: String): Array[Int] = {
