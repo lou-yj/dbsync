@@ -15,6 +15,8 @@ import scala.collection.mutable.ListBuffer
 
 class GpOperation extends PgOperation {
 
+  val dollar = "$$"
+
   override def name(): String = "greenplum"
 
   override def prepareBatchUpsert(syncData: SyncData): (String, Array[AnyRef]) = {
@@ -37,13 +39,13 @@ class GpOperation extends PgOperation {
     })
     val sql =
       s"""
-         do $$
+         do $dollar
         begin
            update \"${syncData.schema}\".\"${syncData.table}\" set ${setBuffer.mkString(",")} where ${whereBuffer.mkString(" and ")} ;
            if not found then
               insert into \"${syncData.schema}\".\"${syncData.table}\" (${fieldBuffer.mkString(",")}) values (${(for (_ <- fieldBuffer.indices) yield "?").mkString(",")});
            end if;
-        end $$;
+        end $dollar;
        """
     (sql, (setValueBuffer ++ whereValueBuffer ++ valueBuffer).toArray)
   }
@@ -51,14 +53,14 @@ class GpOperation extends PgOperation {
   override def batchAck(jdbc: JdbcTemplate, sysSchema: String, ids: List[Long], status: String, message: String): Array[Int] = {
     val ackSql =
       s"""
-         do $$
+         do $dollar
         begin
            update $sysSchema.sync_data_status set status=?,message=?,retry=retry+1 where "dataId"=? ;
            if not found then
               insert into $sysSchema.sync_data_status
               ("dataId",status,message) values (?,?,?);
            end if;
-        end $$;
+        end $dollar;
        """
     jdbc.batchUpdate(ackSql, ackArgsGp(ids, status, message).asJava)
   }
@@ -67,7 +69,7 @@ class GpOperation extends PgOperation {
                                   trigger: String, version: String, function: String): Unit = {
     val sql =
       s"""
-         do $$
+         do $dollar
         begin
            update test set "version"=?,"function"=? where "schema"=? and "table"=? and "trigger"=?;
            if not found then
@@ -76,7 +78,7 @@ class GpOperation extends PgOperation {
               values
               (?,?,?,?,?);
            end if;
-        end $$;
+        end $dollar;
        """
     jdbcTemplate.update(sql, Array[AnyRef](version, function, schema, table, trigger, schema, table, trigger, version, function): _*)
     ()
