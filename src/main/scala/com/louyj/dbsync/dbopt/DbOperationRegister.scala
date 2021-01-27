@@ -11,8 +11,11 @@ object DbOperationRegister {
 
   val pgOpt = new PgOperation
   val mysqlOpt = new MysqlOperation
+  val gpOpt=new GpOperation
 
   val dbOpts = Map(pgOpt.name() -> pgOpt,
-    mysqlOpt.name() -> mysqlOpt)
+    mysqlOpt.name() -> mysqlOpt,
+    gpOpt.name()->gpOpt
+  )
 
 }
