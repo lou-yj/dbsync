@@ -504,7 +504,7 @@ class PgOperation extends DbOperation {
          delete from ${dbConfig.sysSchema}.sync_trigger_version
           where "schema"=? and "table"=? and "trigger"=?;
        """
-    jdbcTemplate.update(delSql, Array[Object](schema, table, trigger))
+    jdbcTemplate.update(delSql, Array[Object](schema, table, trigger): _*)
   }
 
   override def syncState(dbConfig: DatabaseConfig,
