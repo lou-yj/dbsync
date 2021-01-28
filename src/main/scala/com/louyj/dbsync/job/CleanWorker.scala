@@ -1,11 +1,11 @@
 package com.louyj.dbsync.job
 
-import java.util.TimerTask
-
 import com.louyj.dbsync.DatasourcePools
 import com.louyj.dbsync.config.{DatabaseConfig, SysConfig}
 import com.louyj.dbsync.dbopt.DbOperationRegister
 import org.slf4j.LoggerFactory
+
+import java.util.TimerTask
 
 /**
  *
@@ -29,7 +29,7 @@ class CleanWorker(dsPools: DatasourcePools,
         val count = dbOpt.cleanSysTable(jdbcTemplate, dbConfig, sysConfig.dataKeepHours)
         logger.info(s"Finish clean system tables for ${dbConfig.name}, cleaned $count datas")
       } catch {
-        case e => logger.warn("Clean task failed.", e)
+        case e: Exception => logger.warn("Clean task failed.", e)
       }
     }
 
