@@ -1,7 +1,5 @@
 package com.louyj.dbsync.sync
 
-import java.util.concurrent.TimeUnit
-
 import com.louyj.dbsync.DatasourcePools
 import com.louyj.dbsync.config.DatabaseConfig
 import com.louyj.dbsync.dbopt.DbOperation
@@ -9,6 +7,7 @@ import com.louyj.dbsync.dbopt.DbOperationRegister.dbOpts
 import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.JdbcTemplate
 
+import java.util.concurrent.TimeUnit
 import scala.collection.mutable.ListBuffer
 
 /**
@@ -81,6 +80,7 @@ class SyncWorker(partition: Int,
       val srcDbOpt = dbOpts(sourceDbConfig.`type`)
       val tarDbopt = dbOpts(targetDbConfig.`type`)
       val sourceSysSchema = sourceDbConfig.sysSchema
+      var failedStatus = false
       batchData.items.foreach(syncData => {
         val sqlTuple = toSql(tarDbopt, syncData)
         if (preSql == sqlTuple._1) {
@@ -88,7 +88,7 @@ class SyncWorker(partition: Int,
           preIds += syncData.id
           preHashs += syncData.hash
         } else {
-          exec(sourceDb, targetDb, sourceSysSchema,
+          failedStatus = exec(failedStatus, sourceDb, targetDb, sourceSysSchema,
             srcDbOpt, srcJdbc, tarJdbc,
             preSchema, preTable, preSql, preArgs.toList, preIds.toList, preHashs.toList)
           preSchema = syncData.schema
@@ -103,7 +103,7 @@ class SyncWorker(partition: Int,
         }
       })
       if (preArgs.nonEmpty) {
-        exec(sourceDb, targetDb, sourceSysSchema,
+        exec(failedStatus, sourceDb, targetDb, sourceSysSchema,
           srcDbOpt, srcJdbc, tarJdbc,
           preSchema, preTable, preSql, preArgs.toList, preIds.toList, preHashs.toList)
       }
@@ -119,18 +119,26 @@ class SyncWorker(partition: Int,
     }
   }
 
-  def exec(sourceDb: String, targetDb: String,
+  def exec(failedStatus: Boolean, sourceDb: String, targetDb: String,
            sourceSysSchema: String,
            srcDbOpt: DbOperation, srcJdbc: JdbcTemplate, tarJdbc: JdbcTemplate,
            schema: String, table: String,
            sql: String, args: List[Array[AnyRef]],
-           ids: List[Long], hashs: List[Long]): Unit = {
-    if (sql == null) return ()
+           ids: List[Long], hashs: List[Long]): Boolean = {
+    if (sql == null) return failedStatus
     import scala.collection.JavaConverters._
+    if (failedStatus) {
+      val reason = s"Batch failed due to previous error"
+      logger.error(reason)
+      fallbackExec(sourceDb, targetDb, sourceSysSchema,
+        srcDbOpt, srcJdbc, schema, table, sql, args, ids, hashs, reason)
+      return failedStatus
+    }
     try {
       tarJdbc.batchUpdate(sql, args.asJava)
       srcDbOpt.batchAck(srcJdbc, sourceSysSchema, ids, "OK")
       logger.info(s"Sync ${args.size} data for table $schema.$table[$sourceDb->$targetDb]")
+      failedStatus && true
     } catch {
       case e: InterruptedException => throw e
       case e: Exception =>
@@ -138,6 +146,7 @@ class SyncWorker(partition: Int,
         val reason = s"${e.getClass.getSimpleName}-${e.getMessage}"
         fallbackExec(sourceDb, targetDb, sourceSysSchema,
           srcDbOpt, srcJdbc, schema, table, sql, args, ids, hashs, reason)
+        failedStatus && false
     }
   }
 
@@ -145,7 +154,8 @@ class SyncWorker(partition: Int,
                    sourceSysSchema: String,
                    srcDbOpts: DbOperation, srcJdbc: JdbcTemplate,
                    schema: String, table: String,
-                   sql: String, args: List[Array[AnyRef]], ids: List[Long], hashs: List[Long], reason: String): Unit = {
+                   sql: String, args: List[Array[AnyRef]],
+                   ids: List[Long], hashs: List[Long], reason: String): Unit = {
     logger.warn(s"Failed sync ${args.size} data for table $schema.$table[$sourceDb->$targetDb], reason $reason")
     srcDbOpts.batchAck(srcJdbc, sourceSysSchema, ids, "ERR", reason)
 

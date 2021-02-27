@@ -1,10 +1,9 @@
 package com.louyj.dbsync.sync
 
-import java.util.concurrent.{ArrayBlockingQueue, TimeUnit}
-
 import com.louyj.dbsync.config.SysConfig
 import org.slf4j.LoggerFactory
 
+import java.util.concurrent.{ArrayBlockingQueue, TimeUnit}
 import scala.collection.mutable.ListBuffer
 
 /**
@@ -18,7 +17,7 @@ class QueueManager(val partition: Int, state: StateManger, sysConfig: SysConfig)
 
   val logger = LoggerFactory.getLogger(getClass)
 
-  val queues = (for (i <- 0 until partition) yield i -> new ArrayBlockingQueue[BatchData](partition)).toMap
+  val queues = (for (i <- 0 until partition) yield i -> new ArrayBlockingQueue[BatchData](10)).toMap
 
   val unBlockedEventQueues = (for (i <- 0 until partition) yield i -> new ArrayBlockingQueue[Long](100)).toMap
 

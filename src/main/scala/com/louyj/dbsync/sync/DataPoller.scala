@@ -1,9 +1,5 @@
 package com.louyj.dbsync.sync
 
-import java.nio.charset.StandardCharsets
-import java.sql.Timestamp
-import java.util.concurrent.TimeUnit
-
 import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility
 import com.fasterxml.jackson.annotation.PropertyAccessor
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -16,6 +12,9 @@ import org.joda.time.DateTime
 import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.JdbcTemplate
 
+import java.nio.charset.StandardCharsets
+import java.sql.Timestamp
+import java.util.concurrent.TimeUnit
 import scala.collection.mutable.ListBuffer
 
 /**
@@ -76,6 +75,7 @@ class DataPoller(sysConfig: SysConfig, dbConfig: DatabaseConfig,
           TimeUnit.SECONDS.sleep(1)
       }
     }
+    logger.info("Stop poller for database {}", dbConfig.name)
   }
 
   def pushModel(model: SyncDataModel, dataTable: HashBasedTable[String, Int, ListBuffer[SyncData]]): Unit = {
