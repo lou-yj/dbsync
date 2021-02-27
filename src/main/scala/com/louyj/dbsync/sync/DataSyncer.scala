@@ -49,6 +49,7 @@ class SyncWorker(partition: Int,
           TimeUnit.SECONDS.sleep(1)
       }
     }
+    logger.info(s"Stop sync worker $getName")
   }
 
   def syncBlocked() = {
