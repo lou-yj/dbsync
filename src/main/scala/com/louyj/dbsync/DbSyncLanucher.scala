@@ -1,14 +1,13 @@
 package com.louyj.dbsync
 
-import java.io.FileInputStream
-
 import com.louyj.dbsync.config.ConfigParser
 import com.louyj.dbsync.endpoint.Endpoints
 import com.louyj.dbsync.init.{DatabaseInitializer, TriggerInitializer}
-import com.louyj.dbsync.job.{BootstrapTriggerSync, CleanWorker, JobScheduler}
+import com.louyj.dbsync.job.{BootstrapTriggerSync, CleanWorker, SyncTrigger}
 import com.louyj.dbsync.sync._
 import org.slf4j.LoggerFactory
 
+import java.io.FileInputStream
 import scala.collection.mutable.ListBuffer
 
 /**
@@ -34,24 +33,31 @@ object DbSyncLanucher {
     val dbconfigsMap = configParser.databaseConfigMap
 
     new DatabaseInitializer(dsPools, dbConfigs)
-    new CleanWorker(dsPools, sysConfig, dbConfigs)
-
     val stateManager = new StateManger(sysConfig, dbConfigs, dsPools)
     val queueManager = new QueueManager(sysConfig.partition, stateManager, sysConfig)
-    new DataSyncer(dbconfigsMap, queueManager, dsPools)
-    new ErrorResolver(sysConfig, queueManager, dsPools, dbconfigsMap)
-    new BlockedHandler(sysConfig, queueManager, dsPools, dbconfigsMap)
+    val dataSyncer = new DataSyncer(dbconfigsMap, queueManager, dsPools)
+    val errorResolver = new ErrorResolver(sysConfig, queueManager, dsPools, dbconfigsMap)
+    val blockedHandler = new BlockedHandler(sysConfig, queueManager, dsPools, dbconfigsMap)
 
-    val threads = new ListBuffer[Thread]
+    val dataPollers = new ListBuffer[IHeartableComponent]
     dbConfigs.foreach(dbConfig => {
       val jdbc = dsPools.jdbcTemplate(dbConfig.name)
       new TriggerInitializer(dbConfig, dbconfigsMap, dsPools, syncConfigs) with BootstrapTriggerSync
-      threads += new DataPoller(sysConfig, dbConfig, jdbc, queueManager, syncConfigsMap)
+      val dataPoller = new DataPoller(sysConfig, dbConfig, jdbc, queueManager, syncConfigsMap)
+      dataPollers += dataPoller
     })
-    new JobScheduler(dsPools, sysConfig, dbConfigs, dbconfigsMap, syncConfigs)
-    new Endpoints(sysConfig, dbConfigs, dsPools)
+
+    val cleanWorker = new CleanWorker(dsPools, sysConfig, dbConfigs, sysConfig.cleanInterval)
+    val syncTrigger = new SyncTrigger(dsPools, dbConfigs, dbconfigsMap, syncConfigs, sysConfig.syncTriggerInterval)
+
+
+    val componentManager = new ComponentManager
+    componentManager.addComponents(dataPollers.toList)
+    componentManager.addComponents(dataSyncer.sendWorkers)
+    componentManager.addComponents(errorResolver, blockedHandler, cleanWorker, syncTrigger)
+    new Endpoints(sysConfig, dbConfigs, dsPools, componentManager)
     logger.info("Application lanuched")
-    threads.foreach(_.join())
+    dataPollers.foreach(_.join())
 
   }
 

@@ -21,6 +21,7 @@ class DatasourcePools(databaseConfigs: List[DatabaseConfig]) {
     config.setDriverClassName(item.driver)
     config.setMaximumPoolSize(item.maxPoolSize)
     config.setPoolName(item.name)
+    config.setConnectionTimeout(60000)
     val ds = new HikariDataSource(config)
     val jdbcTemplate = new JdbcTemplate(ds)
     item.name -> jdbcTemplate

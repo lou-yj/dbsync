@@ -1,12 +1,13 @@
 package com.louyj.dbsync.job
 
-import java.util.TimerTask
-
 import com.louyj.dbsync.DatasourcePools
 import com.louyj.dbsync.DbSyncLanucher.logger
 import com.louyj.dbsync.config.{DatabaseConfig, SyncConfig}
 import com.louyj.dbsync.dbopt.DbOperationRegister.dbOpts
+import com.louyj.dbsync.sync.IHeartableComponent
 import org.slf4j.LoggerFactory
+
+import java.util.concurrent.TimeUnit
 
 /**
  *
@@ -17,25 +18,34 @@ import org.slf4j.LoggerFactory
 
 class SyncTrigger(dsPools: DatasourcePools, dbConfigs: List[DatabaseConfig],
                   dbconfigsMap: Map[String, DatabaseConfig],
-                  syncConfigs: List[SyncConfig])
-  extends TimerTask with TriggerSync {
+                  syncConfigs: List[SyncConfig],
+                  interval: Long)
+  extends IHeartableComponent with TriggerSync {
 
   val logger = LoggerFactory.getLogger(getClass)
+  setName("cronjob")
 
   override def run(): Unit = {
-    for (dbconfig <- dbConfigs;
-         syncConfig <- syncConfigs if syncConfig.sourceDb == dbconfig.name) {
-      try {
-        syncConfig.targetDb.split(",").foreach(targetdb => {
-          val tarDbConfig = dbconfigsMap(targetdb)
-          syncTrigger(dbconfig, tarDbConfig, dsPools, syncConfig)
-        })
-      } catch {
-        case e => logger.warn("Sync trigger job failed.", e);
+    logger.info(s"Start sync trigger worker, scheduled at fixed rate of ${interval}ms")
+    while (!this.isInterrupted) {
+      TimeUnit.MILLISECONDS.sleep(interval)
+      heartbeat()
+      for (dbconfig <- dbConfigs;
+           syncConfig <- syncConfigs if syncConfig.sourceDb == dbconfig.name) {
+        try {
+          syncConfig.targetDb.split(",").foreach(targetdb => {
+            val tarDbConfig = dbconfigsMap(targetdb)
+            syncTrigger(dbconfig, tarDbConfig, dsPools, syncConfig)
+          })
+        } catch {
+          case e => logger.warn("Sync trigger job failed.", e);
+        }
       }
     }
+    logger.info(s"Stop sync trigger worker")
   }
 
+  override def heartbeatInterval(): Long = interval
 }
 
 

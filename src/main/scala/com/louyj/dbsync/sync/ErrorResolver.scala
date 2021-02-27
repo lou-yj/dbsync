@@ -1,12 +1,12 @@
 package com.louyj.dbsync.sync
 
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
-
 import com.louyj.dbsync.DatasourcePools
 import com.louyj.dbsync.config.{DatabaseConfig, SysConfig}
 import com.louyj.dbsync.dbopt.DbOperationRegister.dbOpts
 import org.slf4j.LoggerFactory
+
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  *
@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory
  */
 
 class ErrorResolver(sysConfig: SysConfig, queueManager: QueueManager, dsPools: DatasourcePools,
-                    dbConfigs: Map[String, DatabaseConfig]) extends Thread {
+                    dbConfigs: Map[String, DatabaseConfig]) extends Thread with IHeartableComponent {
 
   val logger = LoggerFactory.getLogger(getClass)
 
@@ -26,6 +26,7 @@ class ErrorResolver(sysConfig: SysConfig, queueManager: QueueManager, dsPools: D
   override def run(): Unit = {
     logger.info("Error resolver worker lanuched")
     while (!isInterrupted) {
+      heartbeat()
       try {
         val errorBatch = queueManager.takeError
         loopRetry(errorBatch)
@@ -80,4 +81,5 @@ class ErrorResolver(sysConfig: SysConfig, queueManager: QueueManager, dsPools: D
     for (id <- ids) yield Array[AnyRef](id.asInstanceOf[AnyRef], status, message)
   }
 
+  override def heartbeatInterval(): Long = TimeUnit.MINUTES.toMillis(2)
 }

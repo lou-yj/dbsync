@@ -1,11 +1,11 @@
 package com.louyj.dbsync.sync
 
-import java.util.concurrent.TimeUnit
-
 import com.louyj.dbsync.DatasourcePools
 import com.louyj.dbsync.config.{DatabaseConfig, SysConfig}
 import com.louyj.dbsync.dbopt.DbOperationRegister.dbOpts
 import org.slf4j.LoggerFactory
+
+import java.util.concurrent.TimeUnit
 
 /**
  *
@@ -15,7 +15,8 @@ import org.slf4j.LoggerFactory
  */
 
 class BlockedHandler(sysConfig: SysConfig, queueManager: QueueManager,
-                     dsPools: DatasourcePools, dbConfigs: Map[String, DatabaseConfig]) extends Thread {
+                     dsPools: DatasourcePools, dbConfigs: Map[String, DatabaseConfig])
+  extends Thread with IHeartableComponent {
 
   val logger = LoggerFactory.getLogger(getClass)
 
@@ -48,4 +49,5 @@ class BlockedHandler(sysConfig: SysConfig, queueManager: QueueManager,
     }
   }
 
+  override def heartbeatInterval(): Long = TimeUnit.MINUTES.toMillis(2)
 }

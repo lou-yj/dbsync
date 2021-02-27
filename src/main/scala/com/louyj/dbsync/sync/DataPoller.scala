@@ -26,7 +26,8 @@ import scala.collection.mutable.ListBuffer
 
 class DataPoller(sysConfig: SysConfig, dbConfig: DatabaseConfig,
                  jdbc: JdbcTemplate, queueManager: QueueManager,
-                 syncConfigs: Map[String, SyncConfig]) extends Thread {
+                 syncConfigs: Map[String, SyncConfig]) extends Thread
+  with IHeartableComponent {
 
   val logger = LoggerFactory.getLogger(getClass)
 
@@ -47,6 +48,7 @@ class DataPoller(sysConfig: SysConfig, dbConfig: DatabaseConfig,
     val batchSize = sysConfig.batch
     logger.info("Start data poller for database {}", dbConfig.name)
     while (!isInterrupted) {
+      heartbeat
       try {
         val models = dbOpt.pollBatch(jdbc, dbConfig, batchSize)
         if (models.nonEmpty) {
@@ -103,5 +105,5 @@ class DataPoller(sysConfig: SysConfig, dbConfig: DatabaseConfig,
     listBuffer += syncData
   }
 
-
+  override def heartbeatInterval(): Long = sysConfig.maxPollWait
 }

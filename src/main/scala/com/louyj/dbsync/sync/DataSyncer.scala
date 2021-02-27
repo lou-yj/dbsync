@@ -20,16 +20,19 @@ import scala.collection.mutable.ListBuffer
 class DataSyncer(dbConfigs: Map[String, DatabaseConfig],
                  queueManager: QueueManager, dsPools: DatasourcePools) {
 
-  for (partition <- 0 until queueManager.partition) {
+  val sendWorkers = (for (partition <- 0 until queueManager.partition) yield {
     val sendWorker = new SyncWorker(partition, dbConfigs, queueManager, dsPools)
     sendWorker.start()
-  }
+    sendWorker
+  }).toList
+
+
 }
 
 class SyncWorker(partition: Int,
                  dbConfigs: Map[String, DatabaseConfig],
                  queueManager: QueueManager, dsPools: DatasourcePools)
-  extends Thread {
+  extends IHeartableComponent {
 
   val logger = LoggerFactory.getLogger(getClass)
 
@@ -38,6 +41,7 @@ class SyncWorker(partition: Int,
   override def run(): Unit = {
     logger.info(s"Start sync worker $getName")
     while (!isInterrupted) {
+      heartbeat
       try {
         syncBlocked()
         val batchData = queueManager.take(partition)
@@ -164,5 +168,5 @@ class SyncWorker(partition: Int,
     queueManager.putError(partition, errorBatch)
   }
 
-
+  override def heartbeatInterval(): Long = TimeUnit.MINUTES.toMillis(2)
 }
