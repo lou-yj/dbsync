@@ -21,6 +21,7 @@ class CleanWorker(dsPools: DatasourcePools,
 
   val logger = LoggerFactory.getLogger(getClass)
   setName("cronjob")
+  start()
 
   override def run(): Unit = {
     logger.info(s"Start clean worker, scheduled at fixed rate of ${sysConfig.cleanInterval}ms")

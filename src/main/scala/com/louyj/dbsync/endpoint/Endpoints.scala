@@ -29,7 +29,7 @@ class Endpoints(sysConfig: SysConfig, dbConfigs: List[DatabaseConfig], dsPools: 
     config.showJavalinBanner = false
   }).start(sysConfig.endpointPort)
 
-  app.get("/sync-status", ctx => {
+  app.get("/status/sync", ctx => {
     val result = dbConfigs.map(dbConfig => {
       val jdbc = dsPools.jdbcTemplate(dbConfig.name)
       val dbOpt = dbOpts(dbConfig.`type`)
@@ -38,7 +38,7 @@ class Endpoints(sysConfig: SysConfig, dbConfigs: List[DatabaseConfig], dsPools: 
     ctx.result(jackson.writeValueAsString(result))
   })
 
-  app.get("/component-status", ctx => {
+  app.get("/status/component", ctx => {
     val status = componentManager.components.map(e => {
       val component = e._2
       component.componentStatus()

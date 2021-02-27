@@ -24,6 +24,7 @@ class SyncTrigger(dsPools: DatasourcePools, dbConfigs: List[DatabaseConfig],
 
   val logger = LoggerFactory.getLogger(getClass)
   setName("cronjob")
+  start()
 
   override def run(): Unit = {
     logger.info(s"Start sync trigger worker, scheduled at fixed rate of ${interval}ms")
