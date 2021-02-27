@@ -1,7 +1,7 @@
 package com.louyj.dbsync.dbopt
 
 import com.louyj.dbsync.config.{DatabaseConfig, SyncConfig, SysConfig}
-import com.louyj.dbsync.endpoint.SyncState
+import com.louyj.dbsync.monitor.SyncState
 import com.louyj.dbsync.sync.{SyncData, SyncDataModel, SyncTriggerVersion}
 import org.springframework.jdbc.core.JdbcTemplate
 

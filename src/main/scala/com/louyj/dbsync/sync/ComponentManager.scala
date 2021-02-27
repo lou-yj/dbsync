@@ -18,6 +18,7 @@ class ComponentManager {
   def addComponents(components: IHeartableComponent*) = components.foreach(addComponent)
 
   def addComponents(components: List[IHeartableComponent]) = components.foreach(addComponent)
+
 }
 
 

@@ -1,9 +1,9 @@
 package com.louyj.dbsync
 
 import com.louyj.dbsync.config.ConfigParser
-import com.louyj.dbsync.endpoint.Endpoints
 import com.louyj.dbsync.init.{DatabaseInitializer, TriggerInitializer}
 import com.louyj.dbsync.job.{BootstrapTriggerSync, CleanWorker, SyncTrigger}
+import com.louyj.dbsync.monitor.SelfMonitor
 import com.louyj.dbsync.sync._
 import org.slf4j.LoggerFactory
 
@@ -50,12 +50,12 @@ object DbSyncLanucher {
     val cleanWorker = new CleanWorker(dsPools, sysConfig, dbConfigs, sysConfig.cleanInterval)
     val syncTrigger = new SyncTrigger(dsPools, dbConfigs, dbconfigsMap, syncConfigs, sysConfig.syncTriggerInterval)
 
-
     val componentManager = new ComponentManager
     componentManager.addComponents(dataPollers.toList)
     componentManager.addComponents(dataSyncer.sendWorkers)
     componentManager.addComponents(errorResolver, blockedHandler, cleanWorker, syncTrigger)
-    new Endpoints(sysConfig, dbConfigs, dsPools, componentManager)
+    new SelfMonitor(sysConfig, dbConfigs, dsPools, componentManager)
+
     logger.info("Application lanuched")
     dataPollers.foreach(_.join())
 

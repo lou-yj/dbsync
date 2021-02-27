@@ -1,4 +1,4 @@
-package com.louyj.dbsync.endpoint
+package com.louyj.dbsync.monitor
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
@@ -17,17 +17,14 @@ import org.slf4j.LoggerFactory
  * @author Louyj<br/>
  */
 
-class Endpoints(sysConfig: SysConfig, dbConfigs: List[DatabaseConfig], dsPools: DatasourcePools,
+class Endpoints(val app: Javalin, sysConfig: SysConfig,
+                dbConfigs: List[DatabaseConfig],
+                dsPools: DatasourcePools,
                 componentManager: ComponentManager) {
 
   val logger = LoggerFactory.getLogger(getClass)
   private val jackson = new ObjectMapper()
   jackson.registerModule(DefaultScalaModule)
-
-  logger.info(s"Endpoints listen on ${sysConfig.endpointPort}")
-  val app = Javalin.create(config => {
-    config.showJavalinBanner = false
-  }).start(sysConfig.endpointPort)
 
   app.get("/status/sync", ctx => {
     val result = dbConfigs.map(dbConfig => {

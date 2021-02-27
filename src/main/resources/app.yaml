@@ -6,26 +6,27 @@ sys:
   dataKeepHours: 24
   syncTriggerInterval: 300000
   retryInterval: 20000
+  endpointPort: 8081
 
 
 db:
   - name: db1
-    type: postgresql
+    type: greenplum
     driver: org.postgresql.Driver
-    url: jdbc:postgresql://192.168.0.130:5432/test
-    user: postgres
-    password: postgres!23$
+    url: jdbc:postgresql://172.30.1.92:21769/pgdata
+    user: gpadmin
+    password: Mingjueinfo2015_db
     sysSchema: dbsync
     createIndex: true
+    maxPoolSize: 5
   - name: db2
     type: mysql
     driver: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://192.168.0.130:3306/test?useUnicode=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=UTC
-    #    url: jdbc:mysql://192.168.0.130:3306/test?allowMultiQueries=true&useUnicode=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=UTC
+    url: jdbc:mysql://jump.louyj.com:55501/test?useUnicode=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=UTC
     user: root
     password: mysql!23$
     sysSchema: dbsync
-    createIndex: true
+    createIndex: false
 
 sync:
   - sourceDb: db2
@@ -33,6 +34,4 @@ sync:
     sourceSchema: test
     sourceTable: test01
     sourceKeys: f1,f2
-#    insertCondition: NEW.is_commit=1
-#    updateCondition: NEW.is_commit=1
-#    deleteCondition: OLD.is_commit=1
+    targetSchema: public

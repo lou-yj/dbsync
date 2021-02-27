@@ -1,14 +1,13 @@
 package com.louyj.dbsync.dbopt
 
-import java.nio.charset.StandardCharsets
-
 import com.google.common.hash.Hashing
 import com.louyj.dbsync.config.{DatabaseConfig, SyncConfig, SysConfig}
-import com.louyj.dbsync.endpoint.SyncState
+import com.louyj.dbsync.monitor.SyncState
 import com.louyj.dbsync.sync.{SyncData, SyncDataModel, SyncTriggerVersion}
 import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.{BeanPropertyRowMapper, JdbcTemplate}
 
+import java.nio.charset.StandardCharsets
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 
