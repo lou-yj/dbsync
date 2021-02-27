@@ -1,5 +1,6 @@
 package com.louyj.dbsync.monitor
 
+import com.alibaba.druid.pool.DruidDataSource
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.louyj.dbsync.DatasourcePools
@@ -45,6 +46,27 @@ class Endpoints(val app: Javalin, sysConfig: SysConfig,
           "lastHeartbeat" -> new DateTime(component.lastHeartbeatTime()).toString("yyyy-MM-dd HH:mm:ss"),
           "status" -> component.componentStatus().toString
         )
+      )
+    })
+    ctx.result(jackson.writeValueAsString(status))
+  })
+
+
+  app.get("/status/datasource", ctx => {
+    val status = dsPools.jdbcTpls.map(e => {
+      val name = e._1
+      val ds = e._2.getDataSource.asInstanceOf[DruidDataSource]
+      (
+        name, Map(
+        "name" -> ds.getName,
+        "url" -> ds.getUrl,
+        "user" -> ds.getUsername,
+        "maxActive" -> ds.getMaxActive,
+        "activeCount" -> ds.getActiveCount,
+        "errorCount" -> ds.getErrorCount,
+        "pollingCount" -> ds.getPoolingCount,
+        "waitCount" -> ds.getWaitThreadCount
+      )
       )
     })
     ctx.result(jackson.writeValueAsString(status))

@@ -1,7 +1,7 @@
 package com.louyj.dbsync
 
+import com.alibaba.druid.pool.DruidDataSource
 import com.louyj.dbsync.config.DatabaseConfig
-import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import org.springframework.jdbc.core.JdbcTemplate
 
 /**
@@ -14,15 +14,14 @@ import org.springframework.jdbc.core.JdbcTemplate
 class DatasourcePools(databaseConfigs: List[DatabaseConfig]) {
 
   val jdbcTpls = (for (item <- databaseConfigs) yield {
-    val config = new HikariConfig
-    config.setJdbcUrl(item.url)
-    config.setUsername(item.user)
-    config.setPassword(item.password)
-    config.setDriverClassName(item.driver)
-    config.setMaximumPoolSize(item.maxPoolSize)
-    config.setPoolName(item.name)
-    config.setConnectionTimeout(60000)
-    val ds = new HikariDataSource(config)
+    val ds = new DruidDataSource
+    ds.setDriverClassName(item.driver)
+    ds.setUrl(item.url)
+    ds.setUsername(item.user)
+    ds.setPassword(item.password)
+    ds.setMaxActive(item.maxPoolSize)
+    ds.setName(item.name)
+    ds.setQueryTimeout(1800000)
     val jdbcTemplate = new JdbcTemplate(ds)
     item.name -> jdbcTemplate
   }).toMap
