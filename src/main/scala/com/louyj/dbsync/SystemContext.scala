@@ -1,8 +1,9 @@
 package com.louyj.dbsync
 
 import com.alibaba.druid.pool.DruidDataSource
-import com.louyj.dbsync.SystemStatus.{GREEN, SystemStatus}
 import com.louyj.dbsync.config.ConfigParser
+import com.louyj.dbsync.monitor.SyncState
+import com.louyj.dbsync.sync.ComponentStatus.{ComponentStatus, GREEN}
 import com.louyj.dbsync.sync.StateManger
 import io.javalin.Javalin
 import org.joda.time.DateTime
@@ -21,7 +22,8 @@ class SystemContext(configParser: ConfigParser,
 
   val uptime = DateTime.now.toString("yyyy-MM-dd HH:mm:ss")
   var running: Boolean = true
-  var status: SystemStatus = GREEN
+  var componentStatus: ComponentStatus = GREEN
+  var syncStatus: SyncState = SyncState("N/A", 0, 0, 0, 0, 0)
 
   val sysConfig = configParser.sysConfig
   val dbConfigs = configParser.databaseConfig
@@ -69,14 +71,5 @@ class SystemContext(configParser: ConfigParser,
         logger.error(s"Close state db failed", e)
     }
   }
-}
-
-object SystemStatus extends Enumeration {
-
-  type SystemStatus = Value
-
-  val GREEN = Value("GREEN")
-  val YELLOW = Value("YELLOW")
-  val RED = Value("RED")
 
 }

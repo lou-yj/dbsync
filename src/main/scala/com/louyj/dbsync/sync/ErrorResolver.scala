@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 
 class ErrorResolver(queueManager: QueueManager, ctx: SystemContext)
-  extends Thread with HeartbeatComponent {
+  extends Thread with HourStatisticsComponent {
 
   val logger = LoggerFactory.getLogger(getClass)
 
@@ -29,6 +29,7 @@ class ErrorResolver(queueManager: QueueManager, ctx: SystemContext)
       try {
         val errorBatch = queueManager.takeError
         loopRetry(errorBatch)
+        incr(errorBatch.args.size)
       } catch {
         case e: InterruptedException => throw e
         case e: Exception => {
@@ -81,4 +82,5 @@ class ErrorResolver(queueManager: QueueManager, ctx: SystemContext)
   }
 
   override def heartbeatInterval(): Long = TimeUnit.MINUTES.toMillis(2)
+
 }

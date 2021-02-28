@@ -47,7 +47,7 @@ class SyncTrigger(ctx: SystemContext)
     logger.info(s"Stop sync trigger worker")
   }
 
-  override def heartbeatInterval(): Long = 5
+  override def heartbeatInterval(): Long = 5000
 }
 
 

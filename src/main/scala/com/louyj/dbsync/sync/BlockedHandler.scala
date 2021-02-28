@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit
  */
 
 class BlockedHandler(queueManager: QueueManager, ctx: SystemContext)
-  extends Thread with HeartbeatComponent {
+  extends Thread with HourStatisticsComponent {
 
   val logger = LoggerFactory.getLogger(getClass)
 
@@ -24,6 +24,7 @@ class BlockedHandler(queueManager: QueueManager, ctx: SystemContext)
   override def run(): Unit = {
     logger.info("Blocked handler worker lanuched")
     while (ctx.running) {
+      heartbeat()
       try {
         val blockedData = queueManager.takeBlocked()
         val data = blockedData.data
@@ -37,6 +38,7 @@ class BlockedHandler(queueManager: QueueManager, ctx: SystemContext)
         logger.warn(s"Data ${id}[$sourceDb] blocked by ${blockedData.blockedBy.mkString(",")}")
         val message = s"partition $partition hash $hash blocked by ${blockedData.blockedBy.mkString(",")}"
         dbOpt.batchAck(srcJdbc, dbConfig.sysSchema, List(id), "BLK", message)
+        incr(data.items.size)
       } catch {
         case e: InterruptedException => throw e
         case e: Exception => {

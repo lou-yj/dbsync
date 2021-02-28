@@ -31,15 +31,8 @@ class Endpoints(val app: Javalin,
     val status = Map(
       "uptime" -> sysctx.uptime,
       "running" -> sysctx.running,
-      "status" -> sysctx.status.toString,
-      "config" -> Map(
-        "sys" -> sysctx.sysConfig,
-        "db" -> sysctx.dbConfigs.map(v => {
-          val map: mutable.Map[String, AnyRef] = jackson.convertValue(v, classOf[mutable.Map[String, AnyRef]])
-          map -= "password"
-        }),
-        "sync" -> sysctx.syncConfigs
-      )
+      "componentStatus" -> sysctx.componentStatus.toString,
+      "syncStatus" -> sysctx.syncStatus
     )
     ctx.result(jackson.writeValueAsString(status))
   })
@@ -101,6 +94,19 @@ class Endpoints(val app: Javalin,
     sysctx.restart(reason)
     ctx.result("OK")
   })
+
+  app.get("/config", ctx => {
+    val status = Map(
+      "sys" -> sysctx.sysConfig,
+      "db" -> sysctx.dbConfigs.map(v => {
+        val map: mutable.Map[String, AnyRef] = jackson.convertValue(v, classOf[mutable.Map[String, AnyRef]])
+        map -= "password"
+      }),
+      "sync" -> sysctx.syncConfigs
+    )
+    ctx.result(jackson.writeValueAsString(status))
+  })
+
 }
 
 case class SyncState(

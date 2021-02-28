@@ -79,7 +79,7 @@ object App {
     componentManager.addComponents(dataPollers.toList)
     componentManager.addComponents(dataSyncer.sendWorkers)
     componentManager.addComponents(errorResolver, blockedHandler, cleanWorker, syncTrigger)
-    new SelfMonitor(componentManager, ctx)
+    val selfMonitor = new SelfMonitor(componentManager, ctx)
 
     logger.info("Application launched")
     dataPollers.foreach(_.join)
@@ -87,6 +87,7 @@ object App {
     cleanWorker.interrupt()
     syncTrigger.interrupt()
     ctx.destroy()
+    selfMonitor.destroy()
     logger.info("Application exited")
 
   }
