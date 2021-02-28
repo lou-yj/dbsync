@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit
 
 class BlockedHandler(sysConfig: SysConfig, queueManager: QueueManager,
                      dsPools: DatasourcePools, dbConfigs: Map[String, DatabaseConfig])
-  extends Thread with IHeartableComponent {
+  extends Thread with HeartbeatComponent {
 
   val logger = LoggerFactory.getLogger(getClass)
 

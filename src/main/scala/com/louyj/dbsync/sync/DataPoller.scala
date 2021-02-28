@@ -27,7 +27,7 @@ import scala.collection.mutable.ListBuffer
 class DataPoller(sysConfig: SysConfig, dbConfig: DatabaseConfig,
                  jdbc: JdbcTemplate, queueManager: QueueManager,
                  syncConfigs: Map[String, SyncConfig]) extends Thread
-  with IHeartableComponent {
+  with HourStatisticsComponent {
 
   val logger = LoggerFactory.getLogger(getClass)
 
@@ -63,6 +63,7 @@ class DataPoller(sysConfig: SysConfig, dbConfig: DatabaseConfig,
           val startTimeStr = new DateTime(startTime.getTime).toString("yyyy-MM-dd HH:mm:ss")
           val endTimeStr = new DateTime(endTime.getTime).toString("yyyy-MM-dd HH:mm:ss")
           logger.info(s"Poll ${models.size} data between $startTimeStr and $endTimeStr, current offset ${models.last.id}")
+          incr(models.size)
         }
         val percent = (batchSize - models.size) * 1.0 / batchSize
         val waitTime = (percent * maxPollWait).longValue()

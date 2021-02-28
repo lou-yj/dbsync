@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 
 class ErrorResolver(sysConfig: SysConfig, queueManager: QueueManager, dsPools: DatasourcePools,
-                    dbConfigs: Map[String, DatabaseConfig]) extends Thread with IHeartableComponent {
+                    dbConfigs: Map[String, DatabaseConfig]) extends Thread with HeartbeatComponent {
 
   val logger = LoggerFactory.getLogger(getClass)
 

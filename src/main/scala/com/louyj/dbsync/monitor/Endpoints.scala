@@ -6,10 +6,12 @@ import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.louyj.dbsync.DatasourcePools
 import com.louyj.dbsync.config.{DatabaseConfig, SysConfig}
 import com.louyj.dbsync.dbopt.DbOperationRegister.dbOpts
-import com.louyj.dbsync.sync.ComponentManager
+import com.louyj.dbsync.sync.{ComponentManager, StatisticsComponent}
 import io.javalin.Javalin
 import org.joda.time.DateTime
 import org.slf4j.LoggerFactory
+
+import scala.collection.mutable
 
 /**
  *
@@ -32,23 +34,29 @@ class Endpoints(val app: Javalin, sysConfig: SysConfig,
       val jdbc = dsPools.jdbcTemplate(dbConfig.name)
       val dbOpt = dbOpts(dbConfig.`type`)
       dbOpt.syncState(dbConfig, jdbc)
-    })
+    }).sortBy(_.name)
     ctx.result(jackson.writeValueAsString(result))
   })
 
   app.get("/status/component", ctx => {
     val status = componentManager.components.map(e => {
       val component = e._2
-      component.componentStatus()
+      var props: mutable.Map[String, Any] = mutable.Map(
+        "lastHeartbeat" -> new DateTime(component.lastHeartbeatTime()).toString("yyyy-MM-dd HH:mm:ss"),
+        "status" -> component.componentStatus().toString
+      )
+      component match {
+        case com: StatisticsComponent =>
+          props += ("statistics" -> com.statistics, "total" -> com.totalCount)
+        case _ =>
+      }
       (
         e._1,
-        Map(
-          "lastHeartbeat" -> new DateTime(component.lastHeartbeatTime()).toString("yyyy-MM-dd HH:mm:ss"),
-          "status" -> component.componentStatus().toString
-        )
+        props
       )
     })
-    ctx.result(jackson.writeValueAsString(status))
+    val sortedStatus = mutable.SortedMap(status.toSeq: _*)
+    ctx.result(jackson.writeValueAsString(sortedStatus))
   })
 
 
@@ -69,7 +77,8 @@ class Endpoints(val app: Javalin, sysConfig: SysConfig,
       )
       )
     })
-    ctx.result(jackson.writeValueAsString(status))
+    val sortedStatus = mutable.SortedMap(status.toSeq: _*)
+    ctx.result(jackson.writeValueAsString(sortedStatus))
   })
 
 }

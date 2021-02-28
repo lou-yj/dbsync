@@ -1,6 +1,7 @@
 package com.louyj.dbsync.sync
 
 import com.louyj.dbsync.sync.ComponentStatus.{ComponentStatus, DEAD, HEALTH, POOR}
+import org.joda.time.DateTime
 
 import scala.collection.mutable
 
@@ -11,18 +12,18 @@ import scala.collection.mutable
  */
 class ComponentManager {
 
-  val components: mutable.Map[String, IHeartableComponent] = mutable.Map()
+  val components: mutable.Map[String, HeartbeatComponent] = mutable.Map()
 
-  def addComponent(component: IHeartableComponent) = components += (component.getName -> component)
+  def addComponent(component: HeartbeatComponent) = components += (component.getName -> component)
 
-  def addComponents(components: IHeartableComponent*) = components.foreach(addComponent)
+  def addComponents(components: HeartbeatComponent*) = components.foreach(addComponent)
 
-  def addComponents(components: List[IHeartableComponent]) = components.foreach(addComponent)
+  def addComponents(components: List[HeartbeatComponent]) = components.foreach(addComponent)
 
 }
 
 
-trait IHeartableComponent extends Thread {
+trait HeartbeatComponent extends Thread {
 
   var heartbeatTime: Long = System.currentTimeMillis()
 
@@ -38,6 +39,46 @@ trait IHeartableComponent extends Thread {
     if (l < 5) return POOR
     DEAD
   }
+
+}
+
+trait StatisticsComponent extends HeartbeatComponent {
+
+  var totalCount = 0L
+  var statistics: mutable.Map[String, Long] = mutable.Map()
+  var statisticsKeys: mutable.Set[String] = mutable.Set()
+
+  def incr(num: Long) = {
+    totalCount = totalCount + num
+    val day = DateTime.now().toString(statisticsTimeFormat())
+    val count = statistics.getOrElse(day, 0L)
+    statistics += (day -> (count + num))
+    statisticsKeys += day
+    if (statisticsKeys.size > statisticsKeepCount()) {
+      statisticsKeys.toList.sorted
+        .take(statisticsKeys.size - statisticsKeepCount)
+        .foreach(statistics -= _)
+    }
+  }
+
+  def statisticsTimeFormat(): String
+
+  def statisticsKeepCount(): Int = 7
+
+}
+
+trait DayStatisticsComponent extends StatisticsComponent {
+
+  override def statisticsTimeFormat() = "yyyy-MM-dd"
+
+  override def statisticsKeepCount(): Int = 7
+
+}
+
+trait HourStatisticsComponent extends StatisticsComponent {
+  override def statisticsTimeFormat() = "yyyy-MM-dd HH"
+
+  override def statisticsKeepCount(): Int = 7 * 24
 
 }
 

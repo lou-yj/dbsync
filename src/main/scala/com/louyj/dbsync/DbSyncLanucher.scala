@@ -39,7 +39,7 @@ object DbSyncLanucher {
     val errorResolver = new ErrorResolver(sysConfig, queueManager, dsPools, dbconfigsMap)
     val blockedHandler = new BlockedHandler(sysConfig, queueManager, dsPools, dbconfigsMap)
 
-    val dataPollers = new ListBuffer[IHeartableComponent]
+    val dataPollers = new ListBuffer[HeartbeatComponent]
     dbConfigs.foreach(dbConfig => {
       val jdbc = dsPools.jdbcTemplate(dbConfig.name)
       new TriggerInitializer(dbConfig, dbconfigsMap, dsPools, syncConfigs) with BootstrapTriggerSync

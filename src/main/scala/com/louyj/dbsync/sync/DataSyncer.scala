@@ -32,7 +32,7 @@ class DataSyncer(dbConfigs: Map[String, DatabaseConfig],
 class SyncWorker(partition: Int,
                  dbConfigs: Map[String, DatabaseConfig],
                  queueManager: QueueManager, dsPools: DatasourcePools)
-  extends IHeartableComponent {
+  extends HourStatisticsComponent {
 
   val logger = LoggerFactory.getLogger(getClass)
 
@@ -143,6 +143,7 @@ class SyncWorker(partition: Int,
       tarJdbc.batchUpdate(sql, args.asJava)
       srcDbOpt.batchAck(srcJdbc, sourceSysSchema, ids, "OK")
       logger.info(s"Sync ${args.size} data for table $schema.$table[$sourceDb->$targetDb]")
+      incr(args.size)
       failedStatus && true
     } catch {
       case e: InterruptedException => throw e

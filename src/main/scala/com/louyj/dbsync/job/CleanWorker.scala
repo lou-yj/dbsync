@@ -3,7 +3,7 @@ package com.louyj.dbsync.job
 import com.louyj.dbsync.DatasourcePools
 import com.louyj.dbsync.config.{DatabaseConfig, SysConfig}
 import com.louyj.dbsync.dbopt.DbOperationRegister
-import com.louyj.dbsync.sync.IHeartableComponent
+import com.louyj.dbsync.sync.HeartbeatComponent
 import org.slf4j.LoggerFactory
 
 import java.util.concurrent.TimeUnit
@@ -17,10 +17,10 @@ import java.util.concurrent.TimeUnit
 
 class CleanWorker(dsPools: DatasourcePools,
                   sysConfig: SysConfig, dbConfigs: List[DatabaseConfig], interval: Long)
-  extends IHeartableComponent {
+  extends HeartbeatComponent {
 
   val logger = LoggerFactory.getLogger(getClass)
-  setName("cronjob")
+  setName("cleanWorker")
   start()
 
   override def run(): Unit = {
