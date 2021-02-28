@@ -84,10 +84,10 @@ object App {
     logger.info("Application launched")
     dataPollers.foreach(_.join)
     dataSyncer.sendWorkers.foreach(_.join)
-    cleanWorker.interrupt()
-    syncTrigger.interrupt()
-    ctx.destroy()
+    cleanWorker.join
+    syncTrigger.join
     selfMonitor.destroy()
+    ctx.destroy()
     logger.info("Application exited")
 
   }

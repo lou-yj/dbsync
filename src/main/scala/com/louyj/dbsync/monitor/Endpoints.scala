@@ -75,8 +75,7 @@ class Endpoints(val app: Javalin,
   })
 
   app.get("/control/restart", ctx => {
-    val reason = ctx.queryParam("reason")
-    sysctx.restart(reason)
+    sysctx.restart("Restart by restart api")
     ctx.result("OK")
   })
 

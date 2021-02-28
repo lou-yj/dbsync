@@ -26,7 +26,7 @@ class SelfMonitor(componentManager: ComponentManager, ctx: SystemContext)
 
   new Endpoints(ctx.app, componentManager, ctx)
   val timer = new Timer(true)
-  val scheduleInterval = TimeUnit.SECONDS.toMillis(10)
+  val scheduleInterval = TimeUnit.SECONDS.toMillis(60)
   timer.schedule(this, scheduleInterval, scheduleInterval)
 
   override def run(): Unit = {
