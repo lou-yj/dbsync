@@ -5,9 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.louyj.dbsync.SystemContext
 import com.louyj.dbsync.dbopt.DbOperationRegister.dbOpts
-import com.louyj.dbsync.sync.{ComponentManager, StatisticsComponent}
+import com.louyj.dbsync.sync.ComponentManager
 import io.javalin.Javalin
-import org.joda.time.DateTime
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable
@@ -32,7 +31,8 @@ class Endpoints(val app: Javalin,
       "uptime" -> sysctx.uptime,
       "running" -> sysctx.running,
       "componentStatus" -> sysctx.componentStatus.toString,
-      "syncStatus" -> sysctx.syncStatus
+      "syncStatus" -> sysctx.syncStatus,
+      "restartReason" -> sysctx.restartReason
     )
     ctx.result(jackson.writeValueAsString(status))
   })
@@ -47,22 +47,7 @@ class Endpoints(val app: Javalin,
   })
 
   app.get("/status/component", ctx => {
-    val status = componentManager.components.map(e => {
-      val component = e._2
-      var props: mutable.Map[String, Any] = mutable.Map(
-        "lastHeartbeat" -> new DateTime(component.lastHeartbeatTime()).toString("yyyy-MM-dd HH:mm:ss"),
-        "status" -> component.componentStatus().toString
-      )
-      component match {
-        case com: StatisticsComponent =>
-          props += ("statistics" -> com.statistics, "total" -> com.totalCount)
-        case _ =>
-      }
-      (
-        e._1,
-        props
-      )
-    })
+    val status = componentManager.format(componentManager.components)
     val sortedStatus = mutable.SortedMap(status.toSeq: _*)
     ctx.result(jackson.writeValueAsString(sortedStatus))
   })

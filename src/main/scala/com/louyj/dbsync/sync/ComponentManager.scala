@@ -20,6 +20,25 @@ class ComponentManager {
 
   def addComponents(components: List[HeartbeatComponent]) = components.foreach(addComponent)
 
+  def format(components: mutable.Map[String, HeartbeatComponent]) = {
+    components.map(e => {
+      val component = e._2
+      var props: mutable.Map[String, Any] = mutable.Map(
+        "lastHeartbeat" -> new DateTime(component.lastHeartbeatTime()).toString("yyyy-MM-dd HH:mm:ss"),
+        "status" -> component.componentStatus().toString
+      )
+      component match {
+        case com: StatisticsComponent =>
+          props += ("statistics" -> com.statistics, "total" -> com.totalCount)
+        case _ =>
+      }
+      (
+        e._1,
+        props
+      )
+    })
+  }
+
 }
 
 

@@ -38,6 +38,9 @@ case class SysConfig(var batch: Int = 10000,
                      var pollBlockInterval: Long = 1000,
                      var workDirectory: String = ".",
                      var stateDirectory: String = "state",
-                     var endpointPort: Int = 8080)
+                     var endpointPort: Int = 8080,
+                     var restartWhenRedStatus: Boolean = false,
+                     var restartWhenBlockedOver: Long = Long.MaxValue,
+                     var restartWhenErrorOver: Long = Long.MaxValue)
 
 
