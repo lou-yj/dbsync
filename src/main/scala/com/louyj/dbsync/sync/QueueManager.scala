@@ -58,8 +58,9 @@ class QueueManager(state: StateManger, ctx: SystemContext) {
     }
   }
 
-  def takeError: ErrorBatch = {
+  def takeError(heartbeatComponent: HeartbeatComponent): ErrorBatch = {
     while (true) {
+      heartbeatComponent.heartbeat()
       val errorBatch = state.takeError
       if (errorBatch != null) return errorBatch
       TimeUnit.SECONDS.sleep(1)
@@ -81,8 +82,9 @@ class QueueManager(state: StateManger, ctx: SystemContext) {
     }
   }
 
-  def takeBlocked(): BlockedData = {
+  def takeBlocked(heartbeatComponent: HeartbeatComponent): BlockedData = {
     while (true) {
+      heartbeatComponent.heartbeat()
       val errorBatch = state.takeBlocked
       if (errorBatch != null) return errorBatch
       TimeUnit.SECONDS.sleep(1)

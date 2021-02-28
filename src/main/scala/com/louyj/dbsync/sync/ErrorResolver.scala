@@ -27,7 +27,7 @@ class ErrorResolver(queueManager: QueueManager, ctx: SystemContext)
     while (ctx.running) {
       heartbeat()
       try {
-        val errorBatch = queueManager.takeError
+        val errorBatch = queueManager.takeError(this)
         loopRetry(errorBatch)
         incr(errorBatch.args.size)
       } catch {

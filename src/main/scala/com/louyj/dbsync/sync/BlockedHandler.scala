@@ -26,7 +26,7 @@ class BlockedHandler(queueManager: QueueManager, ctx: SystemContext)
     while (ctx.running) {
       heartbeat()
       try {
-        val blockedData = queueManager.takeBlocked()
+        val blockedData = queueManager.takeBlocked(this)
         val data = blockedData.data
         val sourceDb = data.sourceDb
         val dbConfig = ctx.dbConfigsMap(sourceDb)
