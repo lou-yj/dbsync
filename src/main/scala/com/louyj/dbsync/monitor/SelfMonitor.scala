@@ -14,4 +14,5 @@ class SelfMonitor(componentManager: ComponentManager, ctx: SystemContext) {
   val logger = LoggerFactory.getLogger(getClass)
   new Endpoints(ctx.app, componentManager, ctx)
 
+
 }

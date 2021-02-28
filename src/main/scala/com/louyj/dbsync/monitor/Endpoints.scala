@@ -27,6 +27,23 @@ class Endpoints(val app: Javalin,
   private val jackson = new ObjectMapper()
   jackson.registerModule(DefaultScalaModule)
 
+  app.get("/status/sys", ctx => {
+    val status = Map(
+      "uptime" -> sysctx.uptime,
+      "running" -> sysctx.running,
+      "status" -> sysctx.status.toString,
+      "config" -> Map(
+        "sys" -> sysctx.sysConfig,
+        "db" -> sysctx.dbConfigs.map(v => {
+          val map: mutable.Map[String, AnyRef] = jackson.convertValue(v, classOf[mutable.Map[String, AnyRef]])
+          map -= "password"
+        }),
+        "sync" -> sysctx.syncConfigs
+      )
+    )
+    ctx.result(jackson.writeValueAsString(status))
+  })
+
   app.get("/status/sync", ctx => {
     val result = sysctx.dbConfigs.map(dbConfig => {
       val jdbc = sysctx.dsPools.jdbcTemplate(dbConfig.name)
