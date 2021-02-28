@@ -1,7 +1,6 @@
 package com.louyj.dbsync.sync
 
-import com.louyj.dbsync.DatasourcePools
-import com.louyj.dbsync.config.DatabaseConfig
+import com.louyj.dbsync.SystemContext
 import com.louyj.dbsync.dbopt.DbOperation
 import com.louyj.dbsync.dbopt.DbOperationRegister.dbOpts
 import org.slf4j.LoggerFactory
@@ -17,11 +16,10 @@ import scala.collection.mutable.ListBuffer
  * @author Louyj<br/>
  */
 
-class DataSyncer(dbConfigs: Map[String, DatabaseConfig],
-                 queueManager: QueueManager, dsPools: DatasourcePools) {
+class DataSyncer(queueManager: QueueManager, ctx: SystemContext) {
 
-  val sendWorkers = (for (partition <- 0 until queueManager.partition) yield {
-    val sendWorker = new SyncWorker(partition, dbConfigs, queueManager, dsPools)
+  val sendWorkers = (for (partition <- 0 until ctx.sysConfig.partition) yield {
+    val sendWorker = new SyncWorker(partition, queueManager, ctx)
     sendWorker.start()
     sendWorker
   }).toList
@@ -30,8 +28,7 @@ class DataSyncer(dbConfigs: Map[String, DatabaseConfig],
 }
 
 class SyncWorker(partition: Int,
-                 dbConfigs: Map[String, DatabaseConfig],
-                 queueManager: QueueManager, dsPools: DatasourcePools)
+                 queueManager: QueueManager, ctx: SystemContext)
   extends HourStatisticsComponent {
 
   val logger = LoggerFactory.getLogger(getClass)
@@ -40,7 +37,7 @@ class SyncWorker(partition: Int,
 
   override def run(): Unit = {
     logger.info(s"Start sync worker $getName")
-    while (!isInterrupted) {
+    while (ctx.running) {
       heartbeat
       try {
         syncBlocked()
@@ -72,16 +69,16 @@ class SyncWorker(partition: Int,
     if (batchData != null) {
       val targetDb = batchData.targetDb
       val sourceDb = batchData.sourceDb
-      val tarJdbc = dsPools.jdbcTemplate(targetDb)
-      val srcJdbc = dsPools.jdbcTemplate(sourceDb)
+      val tarJdbc = ctx.dsPools.jdbcTemplate(targetDb)
+      val srcJdbc = ctx.dsPools.jdbcTemplate(sourceDb)
       var preSchema: String = null
       var preTable: String = null
       var preSql: String = null
       val preArgs = new ListBuffer[Array[AnyRef]]
       val preIds = new ListBuffer[Long]
       val preHashs = new ListBuffer[Long]
-      val targetDbConfig = dbConfigs(targetDb)
-      val sourceDbConfig = dbConfigs(sourceDb)
+      val targetDbConfig = ctx.dbConfigsMap(targetDb)
+      val sourceDbConfig = ctx.dbConfigsMap(sourceDb)
       val srcDbOpt = dbOpts(sourceDbConfig.`type`)
       val tarDbopt = dbOpts(targetDbConfig.`type`)
       val sourceSysSchema = sourceDbConfig.sysSchema

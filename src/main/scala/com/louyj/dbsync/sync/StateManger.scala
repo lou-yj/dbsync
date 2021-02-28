@@ -1,14 +1,14 @@
 package com.louyj.dbsync.sync
 
-import java.io._
-
 import com.leansoft.bigqueue.{BigQueueImpl, IBigQueue}
-import com.louyj.dbsync.DatasourcePools
-import com.louyj.dbsync.config.{DatabaseConfig, SysConfig}
+import com.louyj.dbsync.SystemContext
+import com.louyj.dbsync.config.DatabaseConfig
 import com.louyj.dbsync.dbopt.DbOperationRegister.dbOpts
 import org.apache.commons.io.FileUtils
 import org.mapdb.{BTreeMap, DBMaker}
 import org.slf4j.LoggerFactory
+
+import java.io._
 
 /**
  *
@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory
  * @author Louyj<br/>
  */
 
-class StateManger(sysConfig: SysConfig, dbconfigs: List[DatabaseConfig], dsPools: DatasourcePools) {
+class StateManger(ctx: SystemContext) {
 
   val logger = LoggerFactory.getLogger(getClass)
 
@@ -27,7 +27,7 @@ class StateManger(sysConfig: SysConfig, dbconfigs: List[DatabaseConfig], dsPools
   val blockedQueue: IBigQueue = buildBlockedQueue
   val retryQueue: IBigQueue = buildRetryQueue
 
-  dbconfigs.foreach(cleanBlockedStatus)
+  ctx.dbConfigs.foreach(cleanBlockedStatus)
 
 
   def isBlocked(hash: Long) = retryMap.containsKey(hash)
@@ -83,13 +83,13 @@ class StateManger(sysConfig: SysConfig, dbconfigs: List[DatabaseConfig], dsPools
 
   def cleanBlockedStatus(dbConfig: DatabaseConfig) = {
     val dbOpt = dbOpts(dbConfig.`type`)
-    val jdbc = dsPools.jdbcTemplate(dbConfig.name)
-    val num = dbOpt.buildBootstrapState(jdbc, dbConfig, sysConfig)
+    val jdbc = ctx.dsPools.jdbcTemplate(dbConfig.name)
+    val num = dbOpt.buildBootstrapState(jdbc, dbConfig, ctx.sysConfig)
     logger.info(s"Cleaned $num data in blocked status for ${dbConfig.name}")
   }
 
   def buildDb = {
-    val stateDir = new File(sysConfig.workDirectory, sysConfig.stateDirectory)
+    val stateDir = new File(ctx.sysConfig.workDirectory, ctx.sysConfig.stateDirectory)
     val blockedFile: File = new File(stateDir, "state.map")
     logger.info(s"Using file ${blockedFile.getAbsolutePath} to save state")
     if (blockedFile.exists()) blockedFile.delete()
@@ -106,7 +106,7 @@ class StateManger(sysConfig: SysConfig, dbconfigs: List[DatabaseConfig], dsPools
   }
 
   def buildBlockedQueue = {
-    val stateDir = new File(sysConfig.workDirectory, sysConfig.stateDirectory)
+    val stateDir = new File(ctx.sysConfig.workDirectory, ctx.sysConfig.stateDirectory)
     val queueDir = new File(stateDir, "blocked")
     FileUtils.deleteDirectory(queueDir)
     logger.info(s"Using directory ${queueDir.getAbsolutePath} to serve as blocked queue")
@@ -114,7 +114,7 @@ class StateManger(sysConfig: SysConfig, dbconfigs: List[DatabaseConfig], dsPools
   }
 
   def buildRetryQueue = {
-    val stateDir = new File(sysConfig.workDirectory, sysConfig.stateDirectory)
+    val stateDir = new File(ctx.sysConfig.workDirectory, ctx.sysConfig.stateDirectory)
     val queueDir = new File(stateDir, "retry")
     FileUtils.deleteDirectory(queueDir)
     logger.info(s"Using directory ${queueDir.getAbsolutePath} to serve as retry queue")

@@ -1,11 +1,11 @@
 package com.louyj.dbsync.config
 
-import java.io.InputStream
-
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.apache.commons.lang3.StringUtils.isBlank
+
+import java.io.InputStream
 
 /**
  *

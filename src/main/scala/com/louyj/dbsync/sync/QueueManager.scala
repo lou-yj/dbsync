@@ -1,6 +1,6 @@
 package com.louyj.dbsync.sync
 
-import com.louyj.dbsync.config.SysConfig
+import com.louyj.dbsync.SystemContext
 import org.slf4j.LoggerFactory
 
 import java.util.concurrent.{ArrayBlockingQueue, TimeUnit}
@@ -13,13 +13,13 @@ import scala.collection.mutable.ListBuffer
  * @author Louyj<br/>
  */
 
-class QueueManager(val partition: Int, state: StateManger, sysConfig: SysConfig) {
+class QueueManager(state: StateManger, ctx: SystemContext) {
 
   val logger = LoggerFactory.getLogger(getClass)
 
-  val queues = (for (i <- 0 until partition) yield i -> new ArrayBlockingQueue[BatchData](10)).toMap
+  val queues = (for (i <- 0 until ctx.sysConfig.partition) yield i -> new ArrayBlockingQueue[BatchData](10)).toMap
 
-  val unBlockedEventQueues = (for (i <- 0 until partition) yield i -> new ArrayBlockingQueue[Long](100)).toMap
+  val unBlockedEventQueues = (for (i <- 0 until ctx.sysConfig.partition) yield i -> new ArrayBlockingQueue[Long](100)).toMap
 
 
   def queue(partition: Int) = queues(partition)
@@ -28,7 +28,7 @@ class QueueManager(val partition: Int, state: StateManger, sysConfig: SysConfig)
 
   def take(partition: Int): BatchData = {
     queue(partition).synchronized {
-      val batchData = queue(partition).poll(sysConfig.pollBlockInterval, TimeUnit.MILLISECONDS)
+      val batchData = queue(partition).poll(ctx.sysConfig.pollBlockInterval, TimeUnit.MILLISECONDS)
       if (batchData == null) return null
       var blocked = false
       batchData.items.foreach(d => if (state.isBlocked(d.hash)) blocked = true)

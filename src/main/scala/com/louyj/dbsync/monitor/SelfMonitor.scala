@@ -1,7 +1,6 @@
 package com.louyj.dbsync.monitor
 
-import com.louyj.dbsync.DatasourcePools
-import com.louyj.dbsync.config.{DatabaseConfig, SysConfig}
+import com.louyj.dbsync.SystemContext
 import com.louyj.dbsync.sync.ComponentManager
 import io.javalin.Javalin
 import org.slf4j.LoggerFactory
@@ -11,17 +10,14 @@ import org.slf4j.LoggerFactory
  * @Date: Created at 2021/2/27
  *
  */
-class SelfMonitor(sysConfig: SysConfig,
-                  dbConfigs: List[DatabaseConfig],
-                  dsPools: DatasourcePools,
-                  componentManager: ComponentManager) {
+class SelfMonitor(componentManager: ComponentManager, ctx: SystemContext) {
 
   val logger = LoggerFactory.getLogger(getClass)
-  logger.info(s"Endpoints listen on ${sysConfig.endpointPort}")
+  logger.info(s"Endpoints listen on ${ctx.sysConfig.endpointPort}")
   val app = Javalin.create(config => {
     config.showJavalinBanner = false
-  }).start(sysConfig.endpointPort)
-  new Endpoints(app, sysConfig, dbConfigs, dsPools, componentManager)
+  }).start(ctx.sysConfig.endpointPort)
+  new Endpoints(app, componentManager, ctx)
 
-  
+
 }

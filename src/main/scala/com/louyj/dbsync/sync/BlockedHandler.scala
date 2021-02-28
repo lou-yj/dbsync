@@ -1,7 +1,6 @@
 package com.louyj.dbsync.sync
 
-import com.louyj.dbsync.DatasourcePools
-import com.louyj.dbsync.config.{DatabaseConfig, SysConfig}
+import com.louyj.dbsync.SystemContext
 import com.louyj.dbsync.dbopt.DbOperationRegister.dbOpts
 import org.slf4j.LoggerFactory
 
@@ -14,8 +13,7 @@ import java.util.concurrent.TimeUnit
  * @author Louyj<br/>
  */
 
-class BlockedHandler(sysConfig: SysConfig, queueManager: QueueManager,
-                     dsPools: DatasourcePools, dbConfigs: Map[String, DatabaseConfig])
+class BlockedHandler(queueManager: QueueManager, ctx: SystemContext)
   extends Thread with HeartbeatComponent {
 
   val logger = LoggerFactory.getLogger(getClass)
@@ -25,16 +23,16 @@ class BlockedHandler(sysConfig: SysConfig, queueManager: QueueManager,
 
   override def run(): Unit = {
     logger.info("Blocked handler worker lanuched")
-    while (!isInterrupted) {
+    while (ctx.running) {
       try {
         val blockedData = queueManager.takeBlocked()
         val data = blockedData.data
         val sourceDb = data.sourceDb
-        val dbConfig = dbConfigs(sourceDb)
-        val srcJdbc = dsPools.jdbcTemplate(sourceDb)
+        val dbConfig = ctx.dbConfigsMap(sourceDb)
+        val srcJdbc = ctx.dsPools.jdbcTemplate(sourceDb)
         val hash = data.items.head.hash
         val id = data.items.head.id
-        val partition = math.abs(hash % sysConfig.partition).intValue()
+        val partition = math.abs(hash % ctx.sysConfig.partition).intValue()
         val dbOpt = dbOpts(dbConfig.`type`)
         logger.warn(s"Data ${id}[$sourceDb] blocked by ${blockedData.blockedBy.mkString(",")}")
         val message = s"partition $partition hash $hash blocked by ${blockedData.blockedBy.mkString(",")}"

@@ -1,7 +1,6 @@
 package com.louyj.dbsync.sync
 
-import com.louyj.dbsync.DatasourcePools
-import com.louyj.dbsync.config.{DatabaseConfig, SysConfig}
+import com.louyj.dbsync.SystemContext
 import com.louyj.dbsync.dbopt.DbOperationRegister.dbOpts
 import org.slf4j.LoggerFactory
 
@@ -15,8 +14,8 @@ import java.util.concurrent.atomic.AtomicInteger
  * @author Louyj<br/>
  */
 
-class ErrorResolver(sysConfig: SysConfig, queueManager: QueueManager, dsPools: DatasourcePools,
-                    dbConfigs: Map[String, DatabaseConfig]) extends Thread with HeartbeatComponent {
+class ErrorResolver(queueManager: QueueManager, ctx: SystemContext)
+  extends Thread with HeartbeatComponent {
 
   val logger = LoggerFactory.getLogger(getClass)
 
@@ -25,7 +24,7 @@ class ErrorResolver(sysConfig: SysConfig, queueManager: QueueManager, dsPools: D
 
   override def run(): Unit = {
     logger.info("Error resolver worker lanuched")
-    while (!isInterrupted) {
+    while (ctx.running) {
       heartbeat()
       try {
         val errorBatch = queueManager.takeError
@@ -44,32 +43,32 @@ class ErrorResolver(sysConfig: SysConfig, queueManager: QueueManager, dsPools: D
     val sourceDb = errorBatch.sourceDb
     val targetDb = errorBatch.targetDb
     logger.warn(s"Receive ${errorBatch.ids.size} error data, table ${errorBatch.schema}.${errorBatch.table}[$sourceDb->$targetDb], ids ${errorBatch.ids.mkString(",")} ")
-    val srcJdbc = dsPools.jdbcTemplate(sourceDb)
-    val tarJdbc = dsPools.jdbcTemplate(targetDb)
+    val srcJdbc = ctx.dsPools.jdbcTemplate(sourceDb)
+    val tarJdbc = ctx.dsPools.jdbcTemplate(targetDb)
     (errorBatch.args zip errorBatch.ids zip errorBatch.hashs).foreach(triple => {
-      val retry = new AtomicInteger(sysConfig.maxRetry)
+      val retry = new AtomicInteger(ctx.sysConfig.maxRetry)
       val tuple = triple._1
       val args = tuple._1
       val id = tuple._2
       val hash = triple._2
-      val partition = math.abs(hash % sysConfig.partition).intValue()
-      val dbConfig = dbConfigs(sourceDb)
+      val partition = math.abs(hash % ctx.sysConfig.partition).intValue()
+      val dbConfig = ctx.dbConfigsMap(sourceDb)
       val dbOpt = dbOpts(dbConfig.`type`);
-      logger.info(s"Retry data ${errorBatch.schema}.${errorBatch.table}[$sourceDb->$targetDb] id $id, will retry ${sysConfig.maxRetry} times interval ${sysConfig.retryInterval}ms")
+      logger.info(s"Retry data ${errorBatch.schema}.${errorBatch.table}[$sourceDb->$targetDb] id $id, will retry ${ctx.sysConfig.maxRetry} times interval ${ctx.sysConfig.retryInterval}ms")
       while (retry.decrementAndGet() > 0) {
         try {
           tarJdbc.update(errorBatch.sql, args: _*)
-          val ackSql = dbOpt.batchAck(srcJdbc, dbConfig.sysSchema, List(id), "OK", s"success with ${sysConfig.maxRetry - retry.get()} retry")
-          logger.info(s"Successfully retry for ${errorBatch.schema}.${errorBatch.table}[$sourceDb->$targetDb] id $id, total retry ${sysConfig.maxRetry - retry.get()}")
+          val ackSql = dbOpt.batchAck(srcJdbc, dbConfig.sysSchema, List(id), "OK", s"success with ${ctx.sysConfig.maxRetry - retry.get()} retry")
+          logger.info(s"Successfully retry for ${errorBatch.schema}.${errorBatch.table}[$sourceDb->$targetDb] id $id, total retry ${ctx.sysConfig.maxRetry - retry.get()}")
           queueManager.resolvedError(partition, hash, id)
           retry.set(0)
         } catch {
           case e: InterruptedException => throw e
           case e: Exception => {
-            val message = s"Retry failed ${errorBatch.schema}.${errorBatch.table}[$sourceDb->$targetDb] id $id, total retry ${sysConfig.maxRetry - retry.get()}, reason ${e.getClass.getSimpleName}-${e.getMessage}"
+            val message = s"Retry failed ${errorBatch.schema}.${errorBatch.table}[$sourceDb->$targetDb] id $id, total retry ${ctx.sysConfig.maxRetry - retry.get()}, reason ${e.getClass.getSimpleName}-${e.getMessage}"
             logger.warn(message)
             dbOpt.batchAck(srcJdbc, dbConfig.sysSchema, List(id), "ERR", message)
-            TimeUnit.MILLISECONDS.sleep(sysConfig.retryInterval)
+            TimeUnit.MILLISECONDS.sleep(ctx.sysConfig.retryInterval)
           }
         }
       }

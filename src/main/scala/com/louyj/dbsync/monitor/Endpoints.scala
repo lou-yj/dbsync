@@ -3,8 +3,7 @@ package com.louyj.dbsync.monitor
 import com.alibaba.druid.pool.DruidDataSource
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import com.louyj.dbsync.DatasourcePools
-import com.louyj.dbsync.config.{DatabaseConfig, SysConfig}
+import com.louyj.dbsync.SystemContext
 import com.louyj.dbsync.dbopt.DbOperationRegister.dbOpts
 import com.louyj.dbsync.sync.{ComponentManager, StatisticsComponent}
 import io.javalin.Javalin
@@ -20,18 +19,17 @@ import scala.collection.mutable
  * @author Louyj<br/>
  */
 
-class Endpoints(val app: Javalin, sysConfig: SysConfig,
-                dbConfigs: List[DatabaseConfig],
-                dsPools: DatasourcePools,
-                componentManager: ComponentManager) {
+class Endpoints(val app: Javalin,
+                componentManager: ComponentManager,
+                sysctx: SystemContext) {
 
   val logger = LoggerFactory.getLogger(getClass)
   private val jackson = new ObjectMapper()
   jackson.registerModule(DefaultScalaModule)
 
   app.get("/status/sync", ctx => {
-    val result = dbConfigs.map(dbConfig => {
-      val jdbc = dsPools.jdbcTemplate(dbConfig.name)
+    val result = sysctx.dbConfigs.map(dbConfig => {
+      val jdbc = sysctx.dsPools.jdbcTemplate(dbConfig.name)
       val dbOpt = dbOpts(dbConfig.`type`)
       dbOpt.syncState(dbConfig, jdbc)
     }).sortBy(_.name)
@@ -61,7 +59,7 @@ class Endpoints(val app: Javalin, sysConfig: SysConfig,
 
 
   app.get("/status/datasource", ctx => {
-    val status = dsPools.jdbcTpls.map(e => {
+    val status = sysctx.dsPools.jdbcTpls.map(e => {
       val name = e._1
       val ds = e._2.getDataSource.asInstanceOf[DruidDataSource]
       (

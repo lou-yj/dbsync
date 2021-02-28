@@ -1,6 +1,6 @@
 package com.louyj.dbsync.sync
 
-import com.louyj.dbsync.sync.ComponentStatus.{ComponentStatus, DEAD, HEALTH, POOR}
+import com.louyj.dbsync.sync.ComponentStatus.{ComponentStatus, GREEN, RED, YELLOW}
 import org.joda.time.DateTime
 
 import scala.collection.mutable
@@ -35,9 +35,9 @@ trait HeartbeatComponent extends Thread {
 
   def componentStatus(): ComponentStatus = {
     val l = (System.currentTimeMillis() - heartbeatTime) / heartbeatInterval()
-    if (l < 2) return HEALTH
-    if (l < 5) return POOR
-    DEAD
+    if (l < 2) return GREEN
+    if (l < 5) return YELLOW
+    RED
   }
 
 }
@@ -86,9 +86,9 @@ object ComponentStatus extends Enumeration {
 
   type ComponentStatus = Value
 
-  val HEALTH = Value("health")
-  val POOR = Value("poor")
-  val DEAD = Value("dead")
+  val GREEN = Value("GREEN")
+  val YELLOW = Value("YELLOW")
+  val RED = Value("RED")
 
 }
 

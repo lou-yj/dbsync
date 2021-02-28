@@ -1,6 +1,6 @@
 package com.louyj.dbsync.init
 
-import com.louyj.dbsync.DatasourcePools
+import com.louyj.dbsync.SystemContext
 import com.louyj.dbsync.config.{DatabaseConfig, SyncConfig}
 import com.louyj.dbsync.job.TriggerSync
 import org.slf4j.LoggerFactory
@@ -13,22 +13,20 @@ import org.slf4j.LoggerFactory
  */
 
 
-class TriggerInitializer(srcDbConfig: DatabaseConfig, dbconfigs: Map[String, DatabaseConfig],
-                         dsPools: DatasourcePools,
-                         syncConfigs: List[SyncConfig]) extends TriggerSync {
+class TriggerInitializer(srcDbConfig: DatabaseConfig, ctx: SystemContext) extends TriggerSync {
 
   val logger = LoggerFactory.getLogger(getClass)
 
   logger.info(s"Start check trigger status for ${srcDbConfig.name}")
-  syncConfigs.filter(_.sourceDb == srcDbConfig.name).foreach(buildTrigger)
+  ctx.syncConfigs.filter(_.sourceDb == srcDbConfig.name).foreach(buildTrigger)
   logger.info(s"Finish check trigger status for ${srcDbConfig.name}")
-  cleanTrigger(dsPools, srcDbConfig, syncConfigs)
+  cleanTrigger(ctx.dsPools, srcDbConfig, ctx.syncConfigs)
 
 
   def buildTrigger(syncConfig: SyncConfig) = {
     syncConfig.targetDb.split(",").foreach(targetdb => {
-      val tarDbConfig = dbconfigs(targetdb)
-      syncTrigger(srcDbConfig, tarDbConfig, dsPools, syncConfig)
+      val tarDbConfig = ctx.dbConfigsMap(targetdb)
+      syncTrigger(srcDbConfig, tarDbConfig, ctx.dsPools, syncConfig)
     })
   }
 

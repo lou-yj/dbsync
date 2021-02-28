@@ -25,36 +25,37 @@ object DbSyncLanucher {
     val stream = if (args.length > 0) new FileInputStream(args(0))
     else ClassLoader.getSystemResource("app.yaml").openStream()
     val configParser = new ConfigParser(stream)
-    val dsPools = new DatasourcePools(configParser.databaseConfig)
-    val sysConfig = configParser.sysConfig
-    val syncConfigsMap = configParser.syncConfigMap
-    val syncConfigs = configParser.syncConfig
-    val dbConfigs = configParser.databaseConfig
-    val dbconfigsMap = configParser.databaseConfigMap
+    val ctx = new SystemContext(configParser, new DatasourcePools(configParser.databaseConfig))
 
-    new DatabaseInitializer(dsPools, dbConfigs)
-    val stateManager = new StateManger(sysConfig, dbConfigs, dsPools)
-    val queueManager = new QueueManager(sysConfig.partition, stateManager, sysConfig)
-    val dataSyncer = new DataSyncer(dbconfigsMap, queueManager, dsPools)
-    val errorResolver = new ErrorResolver(sysConfig, queueManager, dsPools, dbconfigsMap)
-    val blockedHandler = new BlockedHandler(sysConfig, queueManager, dsPools, dbconfigsMap)
+    //    val sysConfig = configParser.sysConfig
+    //    val syncConfigsMap = configParser.syncConfigMap
+    //    val syncConfigs = configParser.syncConfig
+    //    val dbConfigs = configParser.databaseConfig
+    //    val dbconfigsMap = configParser.databaseConfigMap
+
+    new DatabaseInitializer(ctx)
+    val stateManager = new StateManger(ctx)
+    val queueManager = new QueueManager(stateManager, ctx)
+    val dataSyncer = new DataSyncer(queueManager, ctx)
+    val errorResolver = new ErrorResolver(queueManager, ctx)
+    val blockedHandler = new BlockedHandler(queueManager, ctx)
 
     val dataPollers = new ListBuffer[HeartbeatComponent]
-    dbConfigs.foreach(dbConfig => {
-      val jdbc = dsPools.jdbcTemplate(dbConfig.name)
-      new TriggerInitializer(dbConfig, dbconfigsMap, dsPools, syncConfigs) with BootstrapTriggerSync
-      val dataPoller = new DataPoller(sysConfig, dbConfig, jdbc, queueManager, syncConfigsMap)
+    ctx.dbConfigs.foreach(dbConfig => {
+      val jdbc = ctx.dsPools.jdbcTemplate(dbConfig.name)
+      new TriggerInitializer(dbConfig, ctx) with BootstrapTriggerSync
+      val dataPoller = new DataPoller(dbConfig, jdbc, queueManager, ctx)
       dataPollers += dataPoller
     })
 
-    val cleanWorker = new CleanWorker(dsPools, sysConfig, dbConfigs, sysConfig.cleanInterval)
-    val syncTrigger = new SyncTrigger(dsPools, dbConfigs, dbconfigsMap, syncConfigs, sysConfig.syncTriggerInterval)
+    val cleanWorker = new CleanWorker(ctx)
+    val syncTrigger = new SyncTrigger(ctx)
 
     val componentManager = new ComponentManager
     componentManager.addComponents(dataPollers.toList)
     componentManager.addComponents(dataSyncer.sendWorkers)
     componentManager.addComponents(errorResolver, blockedHandler, cleanWorker, syncTrigger)
-    new SelfMonitor(sysConfig, dbConfigs, dsPools, componentManager)
+    new SelfMonitor(componentManager, ctx)
 
     logger.info("Application lanuched")
     dataPollers.foreach(_.join())

@@ -6,7 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.google.common.collect.HashBasedTable
 import com.google.common.hash.Hashing
-import com.louyj.dbsync.config.{DatabaseConfig, SyncConfig, SysConfig}
+import com.louyj.dbsync.SystemContext
+import com.louyj.dbsync.config.DatabaseConfig
 import com.louyj.dbsync.dbopt.DbOperationRegister
 import org.joda.time.DateTime
 import org.slf4j.LoggerFactory
@@ -24,9 +25,9 @@ import scala.collection.mutable.ListBuffer
  * @author Louyj<br/>
  */
 
-class DataPoller(sysConfig: SysConfig, dbConfig: DatabaseConfig,
+class DataPoller(dbConfig: DatabaseConfig,
                  jdbc: JdbcTemplate, queueManager: QueueManager,
-                 syncConfigs: Map[String, SyncConfig]) extends Thread
+                 ctx: SystemContext) extends Thread
   with HourStatisticsComponent {
 
   val logger = LoggerFactory.getLogger(getClass)
@@ -44,10 +45,10 @@ class DataPoller(sysConfig: SysConfig, dbConfig: DatabaseConfig,
 
   override def run(): Unit = {
     val dbOpt = DbOperationRegister.dbOpts(dbConfig.`type`)
-    val maxPollWait = sysConfig.maxPollWait
-    val batchSize = sysConfig.batch
+    val maxPollWait = ctx.sysConfig.maxPollWait
+    val batchSize = ctx.sysConfig.batch
     logger.info("Start data poller for database {}", dbConfig.name)
-    while (!isInterrupted) {
+    while (ctx.running) {
       heartbeat
       try {
         val models = dbOpt.pollBatch(jdbc, dbConfig, batchSize)
@@ -83,12 +84,12 @@ class DataPoller(sysConfig: SysConfig, dbConfig: DatabaseConfig,
 
   def pushModel(model: SyncDataModel, dataTable: HashBasedTable[String, Int, ListBuffer[SyncData]]): Unit = {
     val syncKey = s"${model.sourceDb}:${model.schema}:${model.table}"
-    if (!syncConfigs.contains(syncKey)) {
+    if (!ctx.syncConfigsMap.contains(syncKey)) {
       logger.warn(s"No such sync table $syncKey")
       return ()
     }
     val targetDb = model.targetDb
-    val syncConfig = syncConfigs(syncKey)
+    val syncConfig = ctx.syncConfigsMap(syncKey)
     val schema = if (syncConfig.targetSchema == null) model.schema else syncConfig.targetSchema
     val table = if (syncConfig.targetTable == null) model.table else syncConfig.targetTable
     val keys = syncConfig.sourceKeys.split(",")
@@ -97,7 +98,7 @@ class DataPoller(sysConfig: SysConfig, dbConfig: DatabaseConfig,
     val partitionKey = s"$schema:$table:$keyValues"
     val hash = Hashing.murmur3_128().newHasher().putString(partitionKey, StandardCharsets.UTF_8).hash().asLong()
     val syncData = SyncData(hash, model.id, model.operation, schema, table, keys, data)
-    val partition = math.abs(hash % sysConfig.partition).intValue
+    val partition = math.abs(hash % ctx.sysConfig.partition).intValue
     var listBuffer = dataTable.get(targetDb, partition)
     if (listBuffer == null) {
       listBuffer = new ListBuffer[SyncData]
@@ -106,5 +107,5 @@ class DataPoller(sysConfig: SysConfig, dbConfig: DatabaseConfig,
     listBuffer += syncData
   }
 
-  override def heartbeatInterval(): Long = sysConfig.maxPollWait
+  override def heartbeatInterval(): Long = ctx.sysConfig.maxPollWait
 }
