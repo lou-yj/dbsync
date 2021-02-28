@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory
 
 import java.io.FileInputStream
 import scala.collection.mutable.ListBuffer
+import scala.util.control.Breaks.{break, breakable}
 
 /**
  *
@@ -17,29 +18,52 @@ import scala.collection.mutable.ListBuffer
  * @author Louyj<br/>
  */
 
-object DbSyncLanucher {
+object DbSyncLauncher {
 
-  val logger = LoggerFactory.getLogger(DbSyncLanucher.getClass)
+  var restartFlag = false
+  var restartReason = "N/A"
+
+  def restart(reason: String) = {
+    restartFlag = true
+    restartReason = reason
+  }
 
   def main(args: Array[String]): Unit = {
+    breakable {
+      while (true) {
+        restartFlag = false
+        App.bootstrap(args, restartReason)
+        if (restartFlag == false) {
+          break
+        }
+      }
+    }
+  }
+
+}
+
+object DbSyncLanucher {
+
+  def main(args: Array[String]): Unit = {
+    DbSyncLauncher.main(args)
+  }
+
+}
+
+object App {
+  val logger = LoggerFactory.getLogger(App.getClass)
+
+  def bootstrap(args: Array[String], restartReason: String = "N/A"): Unit = {
     val stream = if (args.length > 0) new FileInputStream(args(0))
     else ClassLoader.getSystemResource("app.yaml").openStream()
     val configParser = new ConfigParser(stream)
-    val ctx = new SystemContext(configParser, new DatasourcePools(configParser.databaseConfig))
-
-    //    val sysConfig = configParser.sysConfig
-    //    val syncConfigsMap = configParser.syncConfigMap
-    //    val syncConfigs = configParser.syncConfig
-    //    val dbConfigs = configParser.databaseConfig
-    //    val dbconfigsMap = configParser.databaseConfigMap
-
+    val ctx = new SystemContext(configParser, new DatasourcePools(configParser.databaseConfig), restartReason)
     new DatabaseInitializer(ctx)
     val stateManager = new StateManger(ctx)
     val queueManager = new QueueManager(stateManager, ctx)
     val dataSyncer = new DataSyncer(queueManager, ctx)
     val errorResolver = new ErrorResolver(queueManager, ctx)
     val blockedHandler = new BlockedHandler(queueManager, ctx)
-
     val dataPollers = new ListBuffer[HeartbeatComponent]
     ctx.dbConfigs.foreach(dbConfig => {
       val jdbc = ctx.dsPools.jdbcTemplate(dbConfig.name)
@@ -47,20 +71,24 @@ object DbSyncLanucher {
       val dataPoller = new DataPoller(dbConfig, jdbc, queueManager, ctx)
       dataPollers += dataPoller
     })
-
+    //cronjob
     val cleanWorker = new CleanWorker(ctx)
     val syncTrigger = new SyncTrigger(ctx)
-
+    //component monitor
     val componentManager = new ComponentManager
     componentManager.addComponents(dataPollers.toList)
     componentManager.addComponents(dataSyncer.sendWorkers)
     componentManager.addComponents(errorResolver, blockedHandler, cleanWorker, syncTrigger)
     new SelfMonitor(componentManager, ctx)
 
-    logger.info("Application lanuched")
-    dataPollers.foreach(_.join())
+    logger.info("Application launched")
+    dataPollers.foreach(_.join)
+    dataSyncer.sendWorkers.foreach(_.join)
+    cleanWorker.interrupt()
+    syncTrigger.interrupt()
+    ctx.destroy()
+    logger.info("Application exited")
 
   }
-
 
 }

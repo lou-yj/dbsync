@@ -22,12 +22,17 @@ class CleanWorker(ctx: SystemContext)
   setName("cleanWorker")
   start()
 
+  var lastExecute = System.currentTimeMillis()
+
   override def run(): Unit = {
     logger.info(s"Start clean worker, scheduled at fixed rate of ${ctx.sysConfig.cleanInterval}ms")
-    while (!this.isInterrupted) {
-      TimeUnit.MILLISECONDS.sleep(ctx.sysConfig.cleanInterval)
+    while (ctx.running) {
+      TimeUnit.MILLISECONDS.sleep(5000)
       heartbeat()
-      ctx.dbConfigs.foreach(cleanFun)
+      if (System.currentTimeMillis() - lastExecute > ctx.sysConfig.cleanInterval) {
+        ctx.dbConfigs.foreach(cleanFun)
+        lastExecute = System.currentTimeMillis()
+      }
     }
     logger.info(s"Stop clean worker")
   }
@@ -44,5 +49,5 @@ class CleanWorker(ctx: SystemContext)
     }
   }
 
-  override def heartbeatInterval(): Long = ctx.sysConfig.cleanInterval
+  override def heartbeatInterval(): Long = 5
 }

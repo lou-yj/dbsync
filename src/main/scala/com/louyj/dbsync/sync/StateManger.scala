@@ -27,6 +27,7 @@ class StateManger(ctx: SystemContext) {
   val blockedQueue: IBigQueue = buildBlockedQueue
   val retryQueue: IBigQueue = buildRetryQueue
 
+  ctx.stateManger = this
   ctx.dbConfigs.foreach(cleanBlockedStatus)
 
 
@@ -94,7 +95,9 @@ class StateManger(ctx: SystemContext) {
     logger.info(s"Using file ${blockedFile.getAbsolutePath} to save state")
     if (blockedFile.exists()) blockedFile.delete()
     blockedFile.getParentFile.mkdirs()
-    DBMaker.fileDB(blockedFile.getAbsolutePath).fileMmapEnableIfSupported.fileMmapPreclearDisable.make()
+    DBMaker.fileDB(blockedFile.getAbsolutePath)
+      .fileMmapEnableIfSupported
+      .fileMmapPreclearDisable.make()
   }
 
   def buildBlockedMap = {

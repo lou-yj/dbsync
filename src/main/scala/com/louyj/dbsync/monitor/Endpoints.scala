@@ -79,6 +79,11 @@ class Endpoints(val app: Javalin,
     ctx.result(jackson.writeValueAsString(sortedStatus))
   })
 
+  app.get("/control/restart", ctx => {
+    val reason = ctx.queryParam("reason")
+    sysctx.restart(reason)
+    ctx.result("OK")
+  })
 }
 
 case class SyncState(

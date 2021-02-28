@@ -1,6 +1,6 @@
 package com.louyj.dbsync.job
 
-import com.louyj.dbsync.DbSyncLanucher.logger
+import com.louyj.dbsync.App.logger
 import com.louyj.dbsync.config.{DatabaseConfig, SyncConfig}
 import com.louyj.dbsync.dbopt.DbOperationRegister.dbOpts
 import com.louyj.dbsync.sync.HeartbeatComponent
@@ -22,28 +22,32 @@ class SyncTrigger(ctx: SystemContext)
   val logger = LoggerFactory.getLogger(getClass)
   setName("syncTrigger")
   start()
+  var lastExecute = System.currentTimeMillis()
 
   override def run(): Unit = {
     logger.info(s"Start sync trigger worker, scheduled at fixed rate of ${ctx.sysConfig.syncTriggerInterval}ms")
     while (ctx.running) {
-      TimeUnit.MILLISECONDS.sleep(ctx.sysConfig.syncTriggerInterval)
+      TimeUnit.MILLISECONDS.sleep(5000)
       heartbeat()
-      for (dbconfig <- ctx.dbConfigs;
-           syncConfig <- ctx.syncConfigs if syncConfig.sourceDb == dbconfig.name) {
-        try {
-          syncConfig.targetDb.split(",").foreach(targetdb => {
-            val tarDbConfig = ctx.dbConfigsMap(targetdb)
-            syncTrigger(dbconfig, tarDbConfig, ctx.dsPools, syncConfig)
-          })
-        } catch {
-          case e: Throwable => logger.warn("Sync trigger job failed.", e);
+      if (System.currentTimeMillis() - lastExecute > ctx.sysConfig.syncTriggerInterval) {
+        for (dbConfig <- ctx.dbConfigs;
+             syncConfig <- ctx.syncConfigs if syncConfig.sourceDb == dbConfig.name) {
+          try {
+            syncConfig.targetDb.split(",").foreach(targetDb => {
+              val tarDbConfig = ctx.dbConfigsMap(targetDb)
+              syncTrigger(dbConfig, tarDbConfig, ctx.dsPools, syncConfig)
+            })
+          } catch {
+            case e: Throwable => logger.warn("Sync trigger job failed.", e);
+          }
         }
+        lastExecute = System.currentTimeMillis()
       }
     }
     logger.info(s"Stop sync trigger worker")
   }
 
-  override def heartbeatInterval(): Long = ctx.sysConfig.syncTriggerInterval
+  override def heartbeatInterval(): Long = 5
 }
 
 
