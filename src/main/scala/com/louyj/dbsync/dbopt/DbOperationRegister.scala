@@ -1,5 +1,7 @@
 package com.louyj.dbsync.dbopt
 
+import java.util.ServiceLoader
+
 /**
  *
  * Create at 2020/8/27 17:12<br/>
@@ -9,13 +11,9 @@ package com.louyj.dbsync.dbopt
 
 object DbOperationRegister {
 
-  val pgOpt = new PgOperation
-  val mysqlOpt = new MysqlOperation
-  val gpOpt=new GpOperation
+  import scala.collection.JavaConverters._
 
-  val dbOpts = Map(pgOpt.name() -> pgOpt,
-    mysqlOpt.name() -> mysqlOpt,
-    gpOpt.name()->gpOpt
-  )
+  val dbOpts = ServiceLoader.load(classOf[DbOperation], Thread.currentThread.getContextClassLoader)
+    .iterator().asScala.map(v => (v.name(), v)).toMap
 
 }

@@ -1,0 +1,3 @@
+com.louyj.dbsync.dbopt.GpOperation
+com.louyj.dbsync.dbopt.MysqlOperation
+com.louyj.dbsync.dbopt.PgOperation

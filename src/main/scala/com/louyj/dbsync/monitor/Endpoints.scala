@@ -91,6 +91,11 @@ class Endpoints(val app: Javalin,
     ctx.result(jackson.writeValueAsString(status))
   })
 
+  app.get("/config/reload", ctx => {
+    sysctx.restart("Restart by reload config")
+    ctx.result("OK")
+  })
+
 }
 
 case class SyncState(
