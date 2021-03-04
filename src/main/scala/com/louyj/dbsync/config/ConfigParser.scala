@@ -83,9 +83,6 @@ class ConfigParser(stream: InputStream) {
     if (isBlank(sysConfig.workDirectory)) sysConfig.workDirectory = "."
     if (isBlank(sysConfig.stateDirectory)) sysConfig.stateDirectory = "state"
     if (sysConfig.endpointPort == 0) sysConfig.endpointPort = 8080
-    if (sysConfig.restartWhenRedStatus == null) sysConfig.restartWhenRedStatus = false
-    if (sysConfig.restartWhenBlockedOver == null) sysConfig.restartWhenBlockedOver = Long.MaxValue
-    if (sysConfig.restartWhenErrorOver == null) sysConfig.restartWhenErrorOver = Long.MaxValue
     sysConfig
   }
 

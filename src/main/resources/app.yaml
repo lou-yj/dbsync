@@ -12,6 +12,10 @@ sys:
   restartWhenErrorOver: 100
 
 
+monitor:
+  alarm:
+    heartbeatLostOver: 10
+
 db:
   - name: db1
     type: greenplum

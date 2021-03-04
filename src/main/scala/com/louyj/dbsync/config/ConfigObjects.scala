@@ -11,7 +11,8 @@ package com.louyj.dbsync.config
 case class AppConfig(
                       sys: SysConfig,
                       db: List[DatabaseConfig],
-                      sync: List[SyncConfig]
+                      sync: List[SyncConfig],
+                      monitor: List[MonitorConfig]
                     )
 
 case class DatabaseConfig(name: String, sysSchema: String, `type`: String,
@@ -38,9 +39,18 @@ case class SysConfig(var batch: Int = 10000,
                      var pollBlockInterval: Long = 1000,
                      var workDirectory: String = ".",
                      var stateDirectory: String = "state",
-                     var endpointPort: Int = 8080,
-                     var restartWhenRedStatus: Boolean = false,
-                     var restartWhenBlockedOver: Long = Long.MaxValue,
-                     var restartWhenErrorOver: Long = Long.MaxValue)
+                     var endpointPort: Int = 8080)
 
 
+case class MonitorRule(
+                        var heartbeatLostOver: Long = -1L,
+                        var syncBlockedOver: Long = -1L,
+                        var syncErrorOver: Long = -1L,
+                        var syncPendingOver: Long = -1L
+                      )
+
+case class MonitorConfig(
+                          alarm: MonitorRule,
+                          alarmType: String,
+                          restart: MonitorRule
+                        )

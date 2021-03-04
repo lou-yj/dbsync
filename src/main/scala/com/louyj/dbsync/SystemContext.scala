@@ -30,6 +30,7 @@ class SystemContext(configParser: ConfigParser,
   val dbConfigsMap = configParser.databaseConfigMap
   val syncConfigs = configParser.syncConfig
   val syncConfigsMap = configParser.syncConfigMap
+  val monitorConfig = configParser.appConfig.monitor
   var stateManger: StateManger = _
 
   logger.info(s"Endpoints listen on ${sysConfig.endpointPort}")

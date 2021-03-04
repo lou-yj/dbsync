@@ -25,7 +25,9 @@ class ComponentManager {
       val component = e._2
       var props: mutable.Map[String, Any] = mutable.Map(
         "lastHeartbeat" -> new DateTime(component.lastHeartbeatTime()).toString("yyyy-MM-dd HH:mm:ss"),
-        "status" -> component.componentStatus().toString
+        "status" -> component.componentStatus().toString,
+        "heartbeatInterval" -> component.heartbeatInterval(),
+        "heartbeatLost" -> component.heartbeatLost()
       )
       component match {
         case com: StatisticsComponent =>
@@ -58,6 +60,8 @@ trait HeartbeatComponent extends Thread {
     if (l < 5) return YELLOW
     RED
   }
+
+  def heartbeatLost() = (System.currentTimeMillis() - heartbeatTime) / heartbeatInterval()
 
 }
 
