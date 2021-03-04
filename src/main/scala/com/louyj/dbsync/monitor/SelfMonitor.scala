@@ -1,5 +1,8 @@
 package com.louyj.dbsync.monitor
 
+import java.util.concurrent.TimeUnit
+import java.util.{ServiceLoader, Timer, TimerTask}
+
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.louyj.dbsync.SystemContext
@@ -8,9 +11,6 @@ import com.louyj.dbsync.dbopt.DbOperationRegister.dbOpts
 import com.louyj.dbsync.sync.ComponentStatus.{GREEN, RED, YELLOW}
 import com.louyj.dbsync.sync.{ComponentManager, HeartbeatComponent}
 import org.slf4j.LoggerFactory
-
-import java.util.concurrent.TimeUnit
-import java.util.{Timer, TimerTask}
 
 /**
  * @Author: Louyj
@@ -29,6 +29,11 @@ class SelfMonitor(componentManager: ComponentManager, ctx: SystemContext)
   val timer = new Timer(true)
   val scheduleInterval = TimeUnit.SECONDS.toMillis(60)
   timer.schedule(this, scheduleInterval, scheduleInterval)
+
+  import scala.collection.JavaConverters._
+
+  val alarmSenders: Map[String, AlarmSender] = ServiceLoader.load(classOf[AlarmSender], Thread.currentThread.getContextClassLoader)
+    .iterator().asScala.map(v => (v.name(), v)).toMap
 
   override def run(): Unit = {
     try {
@@ -99,29 +104,36 @@ class SelfMonitor(componentManager: ComponentManager, ctx: SystemContext)
           logger.warn(s"Components heartbeat lost over ${monitorConfig.alarm.heartbeatLostOver}, send alarm ...")
           logger.warn(s"Component status detail ${jackson.writeValueAsString(heartbeatOvers)}")
           val redNames = heartbeatOvers.map(_.getName).toList
-          ctx.restart(s"Component ${redNames.mkString(",")} heartbeat lost over ${monitorConfig.restart.heartbeatLostOver}")
+          sendAlarm(monitorConfig.alarmType, monitorConfig.alarmArgs, heartbeatOvers, null,
+            s"Component ${redNames.mkString(",")} heartbeat lost over ${monitorConfig.restart.heartbeatLostOver}")
         }
       }
       if (monitorConfig.alarm.syncBlockedOver != -1 && ctx.syncStatus.blocked > monitorConfig.alarm.syncBlockedOver) {
         logger.warn(s"Sync blocked count ${ctx.syncStatus.blocked} over ${monitorConfig.alarm.syncBlockedOver}, send alarm ...")
         logger.warn(s"Sync status detail ${jackson.writeValueAsString(syncState)}")
-        ctx.restart(s"Sync blocked count ${ctx.syncStatus.blocked} over ${monitorConfig.alarm.syncBlockedOver}")
+        sendAlarm(monitorConfig.alarmType, monitorConfig.alarmArgs, null, ctx.syncStatus,
+          s"Sync blocked count ${ctx.syncStatus.blocked} over ${monitorConfig.alarm.syncBlockedOver}")
       }
       if (monitorConfig.alarm.syncErrorOver != -1 && ctx.syncStatus.blocked > monitorConfig.alarm.syncErrorOver) {
         logger.warn(s"Sync error count ${ctx.syncStatus.error} over ${monitorConfig.alarm.syncErrorOver}, send alarm ...")
         logger.warn(s"Sync status detail ${jackson.writeValueAsString(syncState)}")
-        ctx.restart(s"Sync error count ${ctx.syncStatus.error} over ${monitorConfig.alarm.syncErrorOver}")
+        sendAlarm(monitorConfig.alarmType, monitorConfig.alarmArgs, null, ctx.syncStatus,
+          s"Sync error count ${ctx.syncStatus.error} over ${monitorConfig.alarm.syncErrorOver}")
       }
       if (monitorConfig.alarm.syncPendingOver != -1 && ctx.syncStatus.blocked > monitorConfig.alarm.syncPendingOver) {
         logger.warn(s"Sync pending count ${ctx.syncStatus.pending} over ${monitorConfig.alarm.syncPendingOver}, send alarm ...")
         logger.warn(s"Sync status detail ${jackson.writeValueAsString(syncState)}")
-        ctx.restart(s"Sync pending count ${ctx.syncStatus.pending} over ${monitorConfig.alarm.syncPendingOver}")
+        sendAlarm(monitorConfig.alarmType, monitorConfig.alarmArgs, null, ctx.syncStatus,
+          s"Sync pending count ${ctx.syncStatus.pending} over ${monitorConfig.alarm.syncPendingOver}")
       }
     }
   }
 
-  def sendAlarm(components: Iterable[HeartbeatComponent], syncStatus: SyncState, reason: String): Unit = {
-
+  def sendAlarm(alarmType: String, alarmArgs: Map[String, Object], components: Iterable[HeartbeatComponent], syncStatus: SyncState, reason: String): Unit = {
+    alarmSenders.get(alarmType) match {
+      case None => logger.warn(s"No such alarm sender implement: $alarmType")
+      case Some(alarmSender) => alarmSender.sendAlarm(components, syncStatus, reason, alarmArgs)
+    }
   }
 
   def destroy() = {
