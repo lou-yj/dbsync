@@ -20,18 +20,18 @@ db:
   - name: db1
     type: greenplum
     driver: org.postgresql.Driver
-    url: jdbc:postgresql://172.30.1.92:21769/pgdata
-    user: gpadmin
-    password: Mingjueinfo2015_db
+    url: jdbc:postgresql://x.x.x.x:xxxx/db
+    user: user
+    password: password
     sysSchema: dbsync
     createIndex: true
     maxPoolSize: 5
   - name: db2
     type: mysql
     driver: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://jump.louyj.com:55501/test?useUnicode=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=UTC
-    user: root
-    password: mysql!23$
+    url: jdbc:mysql://x.x.x.x:xxxx/db
+    user: xxxx
+    password: xxxx
     sysSchema: dbsync
     createIndex: false
 
