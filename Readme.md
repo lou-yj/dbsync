@@ -24,6 +24,6 @@
 
 [系统表定义](doc/systable.cn.md)
 
-
+[Endpoints](doc/endpoints.cn.md)
 
 

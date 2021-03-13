@@ -15,7 +15,6 @@ sys:
   stateDirectory: "status"
   endpointPort: 8080
 
-
 db:
   - name: db1
     type: postgresql
@@ -40,6 +39,16 @@ sync:
     sourceSchema: test
     sourceTable: test01
     sourceKeys: f1,f2
+
+monitor:
+  - matches:
+      heartbeatLostOver: 5
+      syncBlockedOver: 100
+      syncErrorOver: 10
+      syncPendingOver: 1000
+    action: webhook
+    params:
+      url: http://x.x.x.x:xxxx/path
 ```
 
 其中
@@ -47,9 +56,7 @@ sync:
 - `sys`为系统配置
 - `db` 为数据库配置, 数组格式, 支持配置多个
 - `sync` 为同步配置, 数组格式, 支持配置多个
-
-
-
+- `monitor` 为监控配置
 
 ## 系统配置
 
@@ -68,7 +75,6 @@ sync:
 - stateDirectory 状态目录名, 相对于`workDirectory`,默认为`state`目录
 - endpointPort 监听端口,默认`8080`
 
-
 ## 数据库配置
 
 数据库配置参数说明:
@@ -82,7 +88,6 @@ sync:
 - password 数据库密码
 - maxPoolSize 数据库连接池最大大小, 默认`15`
 - createIndex 是否对同步目标表自动创建索引, 默认`false`
-
 
 ## 同步配置
 
@@ -99,3 +104,68 @@ sync:
 - updateCondition 当操作为`update`时执行同步过滤条件,满足条件的数据才会被同步
 - deleteCondition 当操作为`delete`时执行同步过滤条件,满足条件的数据才会被同步
 
+## 监控配置
+
+系统提供`同步状态`和`工作线程状态`的监控. 详情参看`Endpoints端点`
+
+监控配置可配置1-N个监控策略, 目前支持的动作有: `发送告警`和`自动重启`
+
+监控配置参数说明:
+
+- matches.heartbeatLostOver 当工作线程心跳丢失超过N次时执行
+- matches.syncBlockedOver 当阻塞的数据量超过N个时执行
+- matches.syncErrorOver 当同步失败的数据量超过N个时执行
+- matches.syncPendingOver 当同步等待的数据量超过N个时执行
+- action 动作类型, 目前支持`restart`和`webhook`方式. 可扩展
+- params 动作参数. 针对每种动作类型有不同参数
+
+### 动作`webhook`, 配置如下
+
+```
+params:
+  url: http://x.x.x.x:xxxx/path
+```
+
+其中`url`为接收告警的地址
+
+告警数据格式如下:
+
+```
+
+> POST /path HTTP/1.1
+> Content-Type: application/json
+> Content-Length: 1056
+
+{
+	"reason": "告警原因",
+	"syncStatus": {
+		"pending": 0,
+		"blocked": 0,
+		"error": 0,
+		"success": 0,
+		"others": 0
+	},
+	"components": {
+		"blocked-handler": {
+			"statistics": {},
+			"total": 0,
+			"heartbeatLost": 0,
+			"heartbeatInterval": 120000,
+			"lastHeartbeat": "2021-03-13 15:04:59",
+			"status": "GREEN"
+		},
+		"cleanWorker": {
+			"heartbeatLost": 206,
+			"heartbeatInterval": 5,
+			"lastHeartbeat": "2021-03-13 15:04:59",
+			"status": "RED"
+		}
+	}
+}
+```
+
+其中:
+
+- reason 为原因
+- syncStatus 为当前同步状态
+- components 为当前工作线程状态

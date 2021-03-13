@@ -50,8 +50,7 @@ case class MonitorRule(
                       )
 
 case class MonitorConfig(
-                          alarm: MonitorRule,
-                          alarmType: String,
-                          alarmArgs: Map[String, Object],
-                          restart: MonitorRule
+                          matches: MonitorRule,
+                          action: String,
+                          params: Map[String, Object]
                         )

@@ -7,14 +7,17 @@ sys:
   syncTriggerInterval: 300000
   retryInterval: 20000
   endpointPort: 8081
-  restartWhenRedStatus: true
-  restartWhenBlockedOver: 100
-  restartWhenErrorOver: 100
 
 
 monitor:
-  alarm:
-    heartbeatLostOver: 10
+  - matches:
+      heartbeatLostOver: 5
+      syncBlockedOver: 100
+      syncErrorOver: 10
+      syncPendingOver: 1000
+    action: webhook
+    params:
+      url: http://x.x.x.x:xxxx/
 
 db:
   - name: db1
