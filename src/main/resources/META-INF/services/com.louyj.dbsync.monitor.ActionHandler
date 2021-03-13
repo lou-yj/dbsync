@@ -1,2 +1,3 @@
 com.louyj.dbsync.monitor.WebhookActionHandler
 com.louyj.dbsync.monitor.RestartActionHandler
+com.louyj.dbsync.monitor.EmailActionHandler

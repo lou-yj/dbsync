@@ -72,43 +72,46 @@ class SelfMonitor(componentManager: ComponentManager, ctx: SystemContext)
   }
 
   def processMonitor(monitorConfig: MonitorConfig, syncState: List[SyncState]): Unit = {
-    if (monitorConfig.matches != null && monitorConfig.action != null) {
-      if (monitorConfig.matches.heartbeatLostOver != -1) {
-        val heartbeatOvers = componentManager.components.filter(_._2.heartbeatLost() > monitorConfig.matches.heartbeatLostOver)
+    val matches = monitorConfig.matches
+    if (matches != null && monitorConfig.action != null) {
+      if (matches.heartbeatLostOver != -1) {
+        val heartbeatOvers = componentManager.components.filter(_._2.heartbeatLost() > matches.heartbeatLostOver)
         if (heartbeatOvers.size > 0) {
           val heartbeatOversDetails = componentManager.format(heartbeatOvers)
-          logger.warn(s"Components heartbeat lost over ${monitorConfig.matches.heartbeatLostOver}")
+          logger.warn(s"Components heartbeat lost over ${matches.heartbeatLostOver} [matched ${monitorConfig.name}]")
           logger.warn(s"Component status detail $heartbeatOversDetails")
           val redNames = heartbeatOvers.map(_._2.getName).toList
-          sendAlarm(monitorConfig.action, monitorConfig.params, heartbeatOversDetails, null,
-            s"Component ${redNames.mkString(",")} heartbeat lost over ${monitorConfig.matches.heartbeatLostOver}")
+          sendAlarm(monitorConfig, heartbeatOversDetails, null,
+            s"Component ${redNames.mkString(",")} heartbeat lost over ${matches.heartbeatLostOver} [matched ${monitorConfig.name}]")
         }
       }
-      if (monitorConfig.matches.syncBlockedOver != -1 && ctx.syncStatus.blocked > monitorConfig.matches.syncBlockedOver) {
-        logger.warn(s"Sync blocked count ${ctx.syncStatus.blocked} over ${monitorConfig.matches.syncBlockedOver}")
+      if (matches.syncBlockedOver != -1 && ctx.syncStatus.blocked > matches.syncBlockedOver) {
+        logger.warn(s"Sync blocked count ${ctx.syncStatus.blocked} over ${matches.syncBlockedOver} [matched ${monitorConfig.name}]")
         logger.warn(s"Sync status detail ${jackson.writeValueAsString(syncState)}")
-        sendAlarm(monitorConfig.action, monitorConfig.params, null, ctx.syncStatus,
-          s"Sync blocked count ${ctx.syncStatus.blocked} over ${monitorConfig.matches.syncBlockedOver}")
+        sendAlarm(monitorConfig, null, ctx.syncStatus,
+          s"Sync blocked count ${ctx.syncStatus.blocked} over ${matches.syncBlockedOver} [matched ${monitorConfig.name}]")
       }
-      if (monitorConfig.matches.syncErrorOver != -1 && ctx.syncStatus.blocked > monitorConfig.matches.syncErrorOver) {
-        logger.warn(s"Sync error count ${ctx.syncStatus.error} over ${monitorConfig.matches.syncErrorOver}")
+      if (matches.syncErrorOver != -1 && ctx.syncStatus.blocked > matches.syncErrorOver) {
+        logger.warn(s"Sync error count ${ctx.syncStatus.error} over ${matches.syncErrorOver} [matched ${monitorConfig.name}]")
         logger.warn(s"Sync status detail ${jackson.writeValueAsString(syncState)}")
-        sendAlarm(monitorConfig.action, monitorConfig.params, null, ctx.syncStatus,
-          s"Sync error count ${ctx.syncStatus.error} over ${monitorConfig.matches.syncErrorOver}")
+        sendAlarm(monitorConfig, null, ctx.syncStatus,
+          s"Sync error count ${ctx.syncStatus.error} over ${matches.syncErrorOver} [matched ${monitorConfig.name}]")
       }
-      if (monitorConfig.matches.syncPendingOver != -1 && ctx.syncStatus.blocked > monitorConfig.matches.syncPendingOver) {
-        logger.warn(s"Sync pending count ${ctx.syncStatus.pending} over ${monitorConfig.matches.syncPendingOver}")
+      if (matches.syncPendingOver != -1 && ctx.syncStatus.blocked > matches.syncPendingOver) {
+        logger.warn(s"Sync pending count ${ctx.syncStatus.pending} over ${matches.syncPendingOver} [matched ${monitorConfig.name}]")
         logger.warn(s"Sync status detail ${jackson.writeValueAsString(syncState)}")
-        sendAlarm(monitorConfig.action, monitorConfig.params, null, ctx.syncStatus,
-          s"Sync pending count ${ctx.syncStatus.pending} over ${monitorConfig.matches.syncPendingOver}")
+        sendAlarm(monitorConfig, null, ctx.syncStatus,
+          s"Sync pending count ${ctx.syncStatus.pending} over ${matches.syncPendingOver} [matched ${monitorConfig.name}]")
       }
     }
   }
 
-  def sendAlarm(alarmType: String, alarmArgs: Map[String, Object], components: mutable.Map[String, mutable.Map[String, Any]], syncStatus: SyncState, reason: String): Unit = {
-    alarmSenders.get(alarmType) match {
-      case None => logger.warn(s"No such action implement: $alarmType")
-      case Some(alarmSender) => alarmSender.doAction(ctx, components, syncStatus, reason, alarmArgs)
+  def sendAlarm(monitorConfig: MonitorConfig, components: mutable.Map[String, mutable.Map[String, Any]], syncStatus: SyncState, reason: String): Unit = {
+    alarmSenders.get(monitorConfig.action) match {
+      case None => logger.warn(s"No such action implement: ${monitorConfig.action}")
+      case Some(alarmSender) =>
+        alarmSender.doAction(monitorConfig, ctx, components, syncStatus, reason)
+        logger.warn(s"Action ${monitorConfig.action} triggered, matched rule ${monitorConfig.name}, reason $reason")
     }
   }
 

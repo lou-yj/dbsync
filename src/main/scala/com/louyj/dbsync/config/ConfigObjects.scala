@@ -50,6 +50,7 @@ case class MonitorRule(
                       )
 
 case class MonitorConfig(
+                          name: String,
                           matches: MonitorRule,
                           action: String,
                           params: Map[String, Object]
