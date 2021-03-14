@@ -1,3 +1,5 @@
 /target/
 /.idea/
 /dbsync.iml
+/src/main/resources/app.yaml
+/src/main/resources/logback.yaml
