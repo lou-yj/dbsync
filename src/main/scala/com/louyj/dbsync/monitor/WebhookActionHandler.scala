@@ -22,12 +22,14 @@ class WebhookActionHandler extends ActionHandler {
     val webhookParams = jackson.convertValue(monitorConfig.params, classOf[WebhookParams])
     val content = Map("matchedRule" -> monitorConfig.name, "reason" -> reason,
       "syncStatus" -> syncStatus, "components" -> components)
-    basicRequest.post(uri"${webhookParams.url}")
+    val response = basicRequest.post(uri"${webhookParams.url}")
       .body(jackson.writeValueAsString(content))
       .header("Content-Type", "application/json")
       .send()
+    logger.info(s"Url ${webhookParams.url} response code ${response.code} content ${response.body}")
   }
 
-  case class WebhookParams(url: String)
-
 }
+
+case class WebhookParams(url: String)
+

@@ -108,7 +108,7 @@ monitor:
 
 系统提供`同步状态`和`工作线程状态`的监控. 详情参看`Endpoints端点`
 
-监控配置可配置1-N个监控策略, 目前支持的动作有: `发送告警`和`自动重启`
+监控配置可配置1-N个监控规则, 目前支持的动作有: `发送邮件通知`、`通过Webhook发送通知`、`自动重启`
 
 监控配置参数说明:
 
@@ -116,56 +116,46 @@ monitor:
 - matches.syncBlockedOver 当阻塞的数据量超过N个时执行
 - matches.syncErrorOver 当同步失败的数据量超过N个时执行
 - matches.syncPendingOver 当同步等待的数据量超过N个时执行
-- action 动作类型, 目前支持`restart`和`webhook`方式. 可扩展
+- action 动作类型, 目前支持`email`、`restart`、`webhook`方式
 - params 动作参数. 针对每种动作类型有不同参数
 
-### 动作`webhook`, 配置如下
+发送通知时包括以下几个信息:
+
+- matchedRule 匹配到的监控规则
+- reason 告警的原因
+- syncStatus 当前同步状态
+- components 当前工作线程状态
+
+### `webhook`动作,
+
+配置如下
 
 ```
+action: webhook
 params:
-  url: http://x.x.x.x:xxxx/path
+  url: http://x.x.x.x:xxxx/path  #接收告警的地址
 ```
 
-其中`url`为接收告警的地址
+### `email`动作
 
-告警数据格式如下:
+配置如下
 
 ```
-
-> POST /path HTTP/1.1
-> Content-Type: application/json
-> Content-Length: 1056
-
-{
-	"reason": "告警原因",
-	"syncStatus": {
-		"pending": 0,
-		"blocked": 0,
-		"error": 0,
-		"success": 0,
-		"others": 0
-	},
-	"components": {
-		"blocked-handler": {
-			"statistics": {},
-			"total": 0,
-			"heartbeatLost": 0,
-			"heartbeatInterval": 120000,
-			"lastHeartbeat": "2021-03-13 15:04:59",
-			"status": "GREEN"
-		},
-		"cleanWorker": {
-			"heartbeatLost": 206,
-			"heartbeatInterval": 5,
-			"lastHeartbeat": "2021-03-13 15:04:59",
-			"status": "RED"
-		}
-	}
-}
+action: email
+params:
+  host: x.x.x.x  #邮件服务器地址
+  port: xxxx    #邮件服务器端口
+  user: xxx     #邮件服务器用户名
+  password: xxxx  #邮件服务器密码
+  from: xxx@xxx.xx  #发件人
+  subject: xxx  #邮件标题
+  to:           #收件人列表
+    - xxx@xxx.xx
+    - xxx@xxx.xx  
 ```
 
-其中:
+### `restart` 动作
 
-- reason 为原因
-- syncStatus 为当前同步状态
-- components 为当前工作线程状态
+```
+action: restart
+```
