@@ -1,9 +1,8 @@
 package com.louyj.dbsync.monitor
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.louyj.dbsync.SystemContext
 import com.louyj.dbsync.config.MonitorConfig
+import com.louyj.dbsync.util.JsonUtils
 import org.apache.commons.mail.{DefaultAuthenticator, SimpleEmail}
 import org.slf4j.LoggerFactory
 
@@ -13,8 +12,7 @@ class EmailActionHandler extends ActionHandler {
 
   val logger = LoggerFactory.getLogger(getClass)
 
-  private val jackson = new ObjectMapper()
-  jackson.registerModule(DefaultScalaModule)
+  private val jackson = JsonUtils.jackson()
 
   override def name(): String = "email"
 
@@ -27,17 +25,29 @@ class EmailActionHandler extends ActionHandler {
           sync status: ${jackson.writeValueAsString(syncStatus)}
           components status: ${jackson.writeValueAsString(components)}
        """
-    val params = monitorConfig.params;
+    val params = monitorConfig.params
+    val emailParams = jackson.convertValue(params, classOf[EmailParams])
     val email = new SimpleEmail
-    email.setHostName(params("host").asInstanceOf[String])
-    email.setSmtpPort(params("port").asInstanceOf[Int])
-    email.setAuthenticator(new DefaultAuthenticator(params("user").asInstanceOf[String], params("password").asInstanceOf[String]))
+    email.setHostName(emailParams.host)
+    email.setSmtpPort(emailParams.port)
+    email.setAuthenticator(new DefaultAuthenticator(emailParams.user, emailParams.password))
     email.setSSLOnConnect(true)
-    email.setFrom(params("from").asInstanceOf[String])
-    email.setSubject(params("subject").asInstanceOf[String])
+    email.setFrom(emailParams.from)
+    email.setSubject(emailParams.subject)
     email.setMsg(content)
-    params("to").asInstanceOf[List[String]].foreach(email.addTo(_))
+    email.addTo(emailParams.to.toArray: _*)
     email.send();
   }
+
+  case class EmailParams(
+                          host: String,
+                          port: Int,
+                          user: String,
+                          password: String,
+                          from: String,
+                          subject: String,
+                          to: List[String]
+                        )
+
 
 }

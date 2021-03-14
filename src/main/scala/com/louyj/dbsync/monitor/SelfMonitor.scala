@@ -1,12 +1,11 @@
 package com.louyj.dbsync.monitor
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.louyj.dbsync.SystemContext
 import com.louyj.dbsync.config.MonitorConfig
 import com.louyj.dbsync.dbopt.DbOperationRegister.dbOpts
 import com.louyj.dbsync.sync.ComponentManager
 import com.louyj.dbsync.sync.ComponentStatus.{GREEN, RED, YELLOW}
+import com.louyj.dbsync.util.JsonUtils
 import org.slf4j.LoggerFactory
 
 import java.util.concurrent.TimeUnit
@@ -23,8 +22,7 @@ class SelfMonitor(componentManager: ComponentManager, ctx: SystemContext)
 
   val logger = LoggerFactory.getLogger(getClass)
 
-  private val jackson = new ObjectMapper()
-  jackson.registerModule(DefaultScalaModule)
+  private val jackson = JsonUtils.jackson()
 
   new Endpoints(ctx.app, componentManager, ctx)
   val timer = new Timer(true)

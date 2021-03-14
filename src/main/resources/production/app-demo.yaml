@@ -7,6 +7,16 @@ sys:
   retryInterval: 60000
   dataKeepHours: 24
 
+monitor:
+  - name: xxx
+    matches:
+      heartbeatLostOver: 5
+      syncBlockedOver: 100
+      syncErrorOver: 10
+      syncPendingOver: 1000
+    action: webhook
+    params:
+      url: http://x.x.x.x:xxxx/path
 
 db:
   - name: db1

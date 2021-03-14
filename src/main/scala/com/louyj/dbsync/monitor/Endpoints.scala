@@ -1,11 +1,10 @@
 package com.louyj.dbsync.monitor
 
 import com.alibaba.druid.pool.DruidDataSource
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.louyj.dbsync.SystemContext
 import com.louyj.dbsync.dbopt.DbOperationRegister.dbOpts
 import com.louyj.dbsync.sync.ComponentManager
+import com.louyj.dbsync.util.JsonUtils
 import io.javalin.Javalin
 import org.slf4j.LoggerFactory
 
@@ -23,8 +22,7 @@ class Endpoints(val app: Javalin,
                 sysctx: SystemContext) {
 
   val logger = LoggerFactory.getLogger(getClass)
-  private val jackson = new ObjectMapper()
-  jackson.registerModule(DefaultScalaModule)
+  private val jackson = JsonUtils.jackson()
 
   app.get("/status/sys", ctx => {
     val status = Map(

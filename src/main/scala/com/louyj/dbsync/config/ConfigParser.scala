@@ -1,8 +1,6 @@
 package com.louyj.dbsync.config
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import com.louyj.dbsync.util.JsonUtils
 import org.apache.commons.lang3.StringUtils.isBlank
 
 import java.io.InputStream
@@ -16,35 +14,32 @@ import java.io.InputStream
 
 class ConfigParser(stream: InputStream) {
 
-  private val yaml = new ObjectMapper(new YAMLFactory)
-  yaml.registerModule(DefaultScalaModule)
-  private val jackson = new ObjectMapper()
-  jackson.registerModule(DefaultScalaModule)
+  private val yaml = JsonUtils.yaml()
 
   val appConfig: AppConfig = yaml.readValue(stream, classOf[AppConfig])
 
-  def sysConfig = {
+  def sysConfig: SysConfig = {
     validateSysConfig(appConfig.sys)
   }
 
-  def databaseConfig = {
+  def databaseConfig: List[DatabaseConfig] = {
     for (item <- appConfig.db) yield validateDbConfig(item)
   }
 
-  def databaseConfigMap = {
+  def databaseConfigMap: Map[String, DatabaseConfig] = {
     (for (item <- appConfig.db) yield item.name -> validateDbConfig(item)).toMap
   }
 
-  def syncConfig = {
+  def syncConfig: List[SyncConfig] = {
     for (item <- appConfig.sync) yield validateSyncConfig(item)
   }
 
-  def syncConfigMap = {
+  def syncConfigMap: Map[String, SyncConfig] = {
     (for (item <- appConfig.sync)
       yield s"${item.sourceDb}:${item.sourceSchema}:${item.sourceTable}" -> validateSyncConfig(item)).toMap
   }
 
-  def validateSyncConfig(syncConfig: SyncConfig) = {
+  def validateSyncConfig(syncConfig: SyncConfig): SyncConfig = {
     if (isBlank(syncConfig.sourceDb)) throw new RuntimeException("sync config error, missing sourceDb")
     if (isBlank(syncConfig.targetDb)) throw new RuntimeException("sync config error, missing targetDb")
     if (isBlank(syncConfig.sourceSchema)) throw new RuntimeException("sync config error, missing sourceSchema")
@@ -58,7 +53,7 @@ class ConfigParser(stream: InputStream) {
     syncConfig
   }
 
-  def validateDbConfig(dbConfig: DatabaseConfig) = {
+  def validateDbConfig(dbConfig: DatabaseConfig): DatabaseConfig = {
     if (isBlank(dbConfig.name)) throw new RuntimeException("db config error, missing name")
     if (isBlank(dbConfig.`type`)) throw new RuntimeException("db config error, missing type")
     if (isBlank(dbConfig.driver)) throw new RuntimeException("db config error, missing driver")
@@ -70,7 +65,7 @@ class ConfigParser(stream: InputStream) {
     dbConfig
   }
 
-  def validateSysConfig(sysConfig: SysConfig) = {
+  def validateSysConfig(sysConfig: SysConfig): SysConfig = {
     if (sysConfig.batch == 0) sysConfig.batch = 10000
     if (sysConfig.partition == 0) sysConfig.partition = 100
     if (sysConfig.maxPollWait == 0) sysConfig.maxPollWait = 60000

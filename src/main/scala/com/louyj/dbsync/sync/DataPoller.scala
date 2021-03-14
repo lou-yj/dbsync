@@ -1,14 +1,11 @@
 package com.louyj.dbsync.sync
 
-import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility
-import com.fasterxml.jackson.annotation.PropertyAccessor
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.google.common.collect.HashBasedTable
 import com.google.common.hash.Hashing
 import com.louyj.dbsync.SystemContext
 import com.louyj.dbsync.config.DatabaseConfig
 import com.louyj.dbsync.dbopt.DbOperationRegister
+import com.louyj.dbsync.util.JsonUtils
 import org.joda.time.DateTime
 import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.JdbcTemplate
@@ -32,9 +29,7 @@ class DataPoller(dbConfig: DatabaseConfig,
 
   val logger = LoggerFactory.getLogger(getClass)
 
-  val objectMapper = new ObjectMapper()
-  objectMapper.setVisibility(PropertyAccessor.FIELD, Visibility.ANY)
-  objectMapper.registerModule(DefaultScalaModule)
+  val objectMapper = JsonUtils.jacksonWithFieldAccess()
 
   var startTime: Timestamp = _
   var endTime: Timestamp = _

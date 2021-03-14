@@ -1,9 +1,8 @@
 package com.louyj.dbsync.dbopt
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.louyj.dbsync.config.DatabaseConfig
 import com.louyj.dbsync.sync.SyncData
+import com.louyj.dbsync.util.JsonUtils
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.support.SqlValue
 
@@ -19,8 +18,7 @@ import scala.collection.JavaConverters.seqAsJavaListConverter
 
 class GpOperation extends PgOperation {
 
-  private val jackson = new ObjectMapper()
-  jackson.registerModule(DefaultScalaModule)
+  private val jackson = JsonUtils.jackson()
 
   val dollar = "$$"
 
@@ -97,7 +95,7 @@ class GpOperation extends PgOperation {
     logger.info(s"System function public.$function[$dbName] updated")
   }
 
-  def ackArgsGp(ids: List[Long], status: String, message: String) = {
+  def ackArgsGp(ids: List[Long], status: String, message: String): List[Array[AnyRef]] = {
     for (id <- ids) yield {
       val map = Map("dataId" -> id, "status" -> status, "message" -> message)
       Array[AnyRef](ArraySqlValue.create(Array[AnyRef]("dataId")), jackson.writeValueAsString(map))
