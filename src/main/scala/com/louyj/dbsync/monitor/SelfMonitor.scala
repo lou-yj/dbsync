@@ -1,10 +1,9 @@
 package com.louyj.dbsync.monitor
 
 import com.louyj.dbsync.SystemContext
+import com.louyj.dbsync.component.ComponentManager
 import com.louyj.dbsync.config.MonitorConfig
 import com.louyj.dbsync.dbopt.DbOperationRegister.dbOpts
-import com.louyj.dbsync.sync.ComponentManager
-import com.louyj.dbsync.sync.ComponentStatus.{GREEN, RED, YELLOW}
 import com.louyj.dbsync.util.JsonUtils
 import org.slf4j.LoggerFactory
 

@@ -1,10 +1,10 @@
 package com.louyj.dbsync
 
 import com.alibaba.druid.pool.DruidDataSource
+import com.louyj.dbsync.component.ComponentStatus.{ComponentStatus, GREEN}
+import com.louyj.dbsync.component.state.StateManger
 import com.louyj.dbsync.config.ConfigParser
 import com.louyj.dbsync.monitor.SyncState
-import com.louyj.dbsync.sync.ComponentStatus.{ComponentStatus, GREEN}
-import com.louyj.dbsync.sync.StateManger
 import io.javalin.Javalin
 import org.joda.time.DateTime
 import org.slf4j.LoggerFactory
@@ -19,18 +19,18 @@ class SystemContext(configParser: ConfigParser,
                     val restartReason: String) {
 
   val logger = LoggerFactory.getLogger(getClass)
-
-  val uptime = DateTime.now.toString("yyyy-MM-dd HH:mm:ss")
-  var running: Boolean = true
-  var componentStatus: ComponentStatus = GREEN
-  var syncStatus: SyncState = SyncState("N/A", 0, 0, 0, 0, 0)
-
+  //config
   val sysConfig = configParser.sysConfig
   val dbConfigs = configParser.databaseConfig
   val dbConfigsMap = configParser.databaseConfigMap
   val syncConfigs = configParser.syncConfig
   val syncConfigsMap = configParser.syncConfigMap
   val monitorConfig = configParser.appConfig.monitor
+  //status
+  val uptime = DateTime.now.toString("yyyy-MM-dd HH:mm:ss")
+  var running: Boolean = true
+  var componentStatus: ComponentStatus = GREEN
+  var syncStatus: SyncState = SyncState("N/A", 0, 0, 0, 0, 0)
   var stateManger: StateManger = _
 
   logger.info(s"Endpoints listen on ${sysConfig.endpointPort}")

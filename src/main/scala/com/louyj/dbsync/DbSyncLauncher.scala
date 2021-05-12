@@ -1,5 +1,7 @@
 package com.louyj.dbsync
 
+import com.louyj.dbsync.component.state.{QueueManager, StateManger}
+import com.louyj.dbsync.component.{ComponentManager, HeartbeatComponent}
 import com.louyj.dbsync.config.ConfigParser
 import com.louyj.dbsync.init.{DatabaseInitializer, TriggerInitializer}
 import com.louyj.dbsync.job.{BootstrapTriggerSync, CleanWorker, SyncTrigger}

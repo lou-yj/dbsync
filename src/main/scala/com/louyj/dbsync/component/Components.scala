@@ -1,50 +1,34 @@
-package com.louyj.dbsync.sync
+package com.louyj.dbsync.component
 
-import com.louyj.dbsync.sync.ComponentStatus.{ComponentStatus, GREEN, RED, YELLOW}
+import com.louyj.dbsync.SystemContext
+import com.louyj.dbsync.component.ComponentStatus.{ComponentStatus, GREEN, RED, YELLOW}
 import org.joda.time.DateTime
 
 import scala.collection.mutable
 
 /**
  * @Author: Louyj
- * @Date: Created at 2021/2/27
+ * @Date: Created at 2021/5/12
  *
  */
-class ComponentManager {
 
-  val components: mutable.Map[String, HeartbeatComponent] = mutable.Map()
+trait Component {
 
-  def addComponent(component: HeartbeatComponent) = components += (component.getName -> component)
+  def name(): String = this.getClass.getSimpleName
 
-  def addComponents(components: HeartbeatComponent*) = components.foreach(addComponent)
+  def order(): Int = 0
 
-  def addComponents(components: List[HeartbeatComponent]) = components.foreach(addComponent)
+  def open(ctx: SystemContext): Unit = {}
 
-  def format(components: mutable.Map[String, HeartbeatComponent]) = {
-    components.map(e => {
-      val component = e._2
-      var props: mutable.Map[String, Any] = mutable.Map(
-        "lastHeartbeat" -> new DateTime(component.lastHeartbeatTime()).toString("yyyy-MM-dd HH:mm:ss"),
-        "status" -> component.componentStatus().toString,
-        "heartbeatInterval" -> component.heartbeatInterval(),
-        "heartbeatLost" -> component.heartbeatLost()
-      )
-      component match {
-        case com: StatisticsComponent =>
-          props += ("statistics" -> com.statistics, "total" -> com.totalCount)
-        case _ =>
-      }
-      (
-        e._1,
-        props
-      )
-    })
-  }
+  def close(): Unit = {}
 
 }
 
+trait EndpointsComponent extends Component {
 
-trait HeartbeatComponent extends Thread {
+}
+
+trait HeartbeatComponent extends Component {
 
   var heartbeatTime: Long = System.currentTimeMillis()
 
@@ -114,4 +98,3 @@ object ComponentStatus extends Enumeration {
   val RED = Value("RED")
 
 }
-

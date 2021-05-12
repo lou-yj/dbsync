@@ -1,6 +1,8 @@
 package com.louyj.dbsync.sync
 
 import com.louyj.dbsync.SystemContext
+import com.louyj.dbsync.component.HourStatisticsComponent
+import com.louyj.dbsync.component.state.QueueManager
 import com.louyj.dbsync.dbopt.DbOperationRegister.dbOpts
 import org.slf4j.LoggerFactory
 

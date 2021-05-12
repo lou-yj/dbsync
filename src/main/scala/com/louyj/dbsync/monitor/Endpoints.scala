@@ -2,8 +2,8 @@ package com.louyj.dbsync.monitor
 
 import com.alibaba.druid.pool.DruidDataSource
 import com.louyj.dbsync.SystemContext
+import com.louyj.dbsync.component.ComponentManager
 import com.louyj.dbsync.dbopt.DbOperationRegister.dbOpts
-import com.louyj.dbsync.sync.ComponentManager
 import com.louyj.dbsync.util.JsonUtils
 import io.javalin.Javalin
 import org.slf4j.LoggerFactory

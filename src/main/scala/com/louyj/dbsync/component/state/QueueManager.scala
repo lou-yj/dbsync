@@ -1,6 +1,8 @@
-package com.louyj.dbsync.sync
+package com.louyj.dbsync.component.state
 
 import com.louyj.dbsync.SystemContext
+import com.louyj.dbsync.component.HeartbeatComponent
+import com.louyj.dbsync.sync._
 import org.slf4j.LoggerFactory
 
 import java.util.concurrent.{ArrayBlockingQueue, TimeUnit}

@@ -3,6 +3,8 @@ package com.louyj.dbsync.sync
 import com.google.common.collect.HashBasedTable
 import com.google.common.hash.Hashing
 import com.louyj.dbsync.SystemContext
+import com.louyj.dbsync.component.HourStatisticsComponent
+import com.louyj.dbsync.component.state.QueueManager
 import com.louyj.dbsync.config.DatabaseConfig
 import com.louyj.dbsync.dbopt.DbOperationRegister
 import com.louyj.dbsync.util.JsonUtils

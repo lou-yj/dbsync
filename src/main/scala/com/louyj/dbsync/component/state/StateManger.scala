@@ -1,9 +1,10 @@
-package com.louyj.dbsync.sync
+package com.louyj.dbsync.component.state
 
 import com.leansoft.bigqueue.{BigQueueImpl, IBigQueue}
 import com.louyj.dbsync.SystemContext
 import com.louyj.dbsync.config.DatabaseConfig
 import com.louyj.dbsync.dbopt.DbOperationRegister.dbOpts
+import com.louyj.dbsync.sync.{BlockedData, ErrorBatch}
 import org.apache.commons.io.FileUtils
 import org.mapdb.{BTreeMap, DBMaker}
 import org.slf4j.LoggerFactory
