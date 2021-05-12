@@ -1,12 +1,13 @@
 package com.louyj.dbsync.job
 
 import com.louyj.dbsync.SystemContext
+import com.louyj.dbsync.component.{HeartbeatComponent, ScheduleComponent}
 import com.louyj.dbsync.config.DatabaseConfig
 import com.louyj.dbsync.dbopt.DbOperationRegister
 import com.louyj.dbsync.sync.HeartbeatComponent
 import org.slf4j.LoggerFactory
 
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{Executors, TimeUnit}
 
 /**
  *
@@ -16,7 +17,7 @@ import java.util.concurrent.TimeUnit
  */
 
 class CleanWorker(ctx: SystemContext)
-  extends HeartbeatComponent {
+  extends ScheduleComponent {
 
   val logger = LoggerFactory.getLogger(getClass)
   setName("cleanWorker")

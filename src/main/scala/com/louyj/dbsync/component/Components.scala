@@ -4,6 +4,7 @@ import com.louyj.dbsync.SystemContext
 import com.louyj.dbsync.component.ComponentStatus.{ComponentStatus, GREEN, RED, YELLOW}
 import org.joda.time.DateTime
 
+import java.util.concurrent.Executors
 import scala.collection.mutable
 
 /**
@@ -21,6 +22,14 @@ trait Component {
   def open(ctx: SystemContext): Unit = {}
 
   def close(): Unit = {}
+
+}
+
+trait ScheduleComponent extends Component with Runnable{
+
+  def rate():Long
+
+  def delay():Long
 
 }
 
