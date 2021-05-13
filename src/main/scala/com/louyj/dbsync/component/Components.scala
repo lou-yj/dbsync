@@ -2,9 +2,9 @@ package com.louyj.dbsync.component
 
 import com.louyj.dbsync.SystemContext
 import com.louyj.dbsync.component.ComponentStatus.{ComponentStatus, GREEN, RED, YELLOW}
+import io.javalin.Javalin
 import org.joda.time.DateTime
 
-import java.util.concurrent.Executors
 import scala.collection.mutable
 
 /**
@@ -15,25 +15,45 @@ import scala.collection.mutable
 
 trait Component {
 
+  var ctx: SystemContext
+
   def name(): String = this.getClass.getSimpleName
 
   def order(): Int = 0
 
-  def open(ctx: SystemContext): Unit = {}
+  def open(ctx: SystemContext): Unit = {
+    this.ctx = ctx
+  }
 
   def close(): Unit = {}
 
 }
 
-trait ScheduleComponent extends Component with Runnable{
+trait ComponentConfigAware {
 
-  def rate():Long
+  var config: Map[String, Any]
 
-  def delay():Long
+  def withConfig(config: Map[String, Any]): Unit = {
+    this.config = config
+  }
+
+}
+
+trait ScheduleComponent extends Component with Runnable {
+
+  def rate(): Long
+
+  def delay(): Long
 
 }
 
 trait EndpointsComponent extends Component {
+
+  var app: Javalin
+
+  def withJavalin(app: Javalin): Unit = {
+    this.app = app
+  }
 
 }
 

@@ -1,7 +1,7 @@
-package com.louyj.dbsync.job
+package com.louyj.dbsync.component.job
 
 import com.louyj.dbsync.SystemContext
-import com.louyj.dbsync.component.ScheduleComponent
+import com.louyj.dbsync.component.{ComponentConfigAware, ScheduleComponent}
 import com.louyj.dbsync.config.DatabaseConfig
 import com.louyj.dbsync.dbopt.DbOperationRegister
 import org.slf4j.LoggerFactory
@@ -14,14 +14,16 @@ import org.slf4j.LoggerFactory
  */
 
 class CleanWorker(ctx: SystemContext)
-  extends ScheduleComponent {
+  extends ScheduleComponent with ComponentConfigAware {
 
   val logger = LoggerFactory.getLogger(getClass)
 
   override def name = "cleanWorker"
 
+  override def open(ctx: SystemContext): Unit = super.open(ctx)
+
   override def run(): Unit = {
-    ctx.dbConfigs.foreach(cleanFun)
+    ctx.appConfig.db.foreach(cleanFun)
   }
 
   def cleanFun = (dbConfig: DatabaseConfig) => {

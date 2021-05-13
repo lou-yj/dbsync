@@ -9,10 +9,11 @@ package com.louyj.dbsync.config
 
 
 case class AppConfig(
-                      sys: SysConfig,
+                      //                      sys: SysConfig,
                       db: List[DatabaseConfig],
                       sync: List[SyncConfig],
-                      monitor: List[MonitorConfig]
+                      monitor: List[MonitorConfig],
+                      component: Map[String, Map[String, Any]]
                     )
 
 case class DatabaseConfig(name: String, sysSchema: String, `type`: String,

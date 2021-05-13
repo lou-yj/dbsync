@@ -3,7 +3,7 @@ package com.louyj.dbsync
 import com.alibaba.druid.pool.DruidDataSource
 import com.louyj.dbsync.component.ComponentStatus.{ComponentStatus, GREEN}
 import com.louyj.dbsync.component.state.StateManger
-import com.louyj.dbsync.config.ConfigParser
+import com.louyj.dbsync.config.AppConfig
 import com.louyj.dbsync.monitor.SyncState
 import io.javalin.Javalin
 import org.joda.time.DateTime
@@ -14,18 +14,11 @@ import org.slf4j.LoggerFactory
  * @Date: Created at 2021/2/28
  *
  */
-class SystemContext(configParser: ConfigParser,
+class SystemContext(val appConfig: AppConfig,
                     val dsPools: DatasourcePools,
                     val restartReason: String) {
 
   val logger = LoggerFactory.getLogger(getClass)
-  //config
-  val sysConfig = configParser.sysConfig
-  val dbConfigs = configParser.databaseConfig
-  val dbConfigsMap = configParser.databaseConfigMap
-  val syncConfigs = configParser.syncConfig
-  val syncConfigsMap = configParser.syncConfigMap
-  val monitorConfig = configParser.appConfig.monitor
   //status
   val uptime = DateTime.now.toString("yyyy-MM-dd HH:mm:ss")
   var running: Boolean = true
