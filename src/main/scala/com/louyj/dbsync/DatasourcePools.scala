@@ -21,7 +21,7 @@ class DatasourcePools(databaseConfigs: List[DatabaseConfig]) {
     ds.setPassword(item.password)
     ds.setMaxActive(item.maxPoolSize)
     ds.setName(item.name)
-    ds.setQueryTimeout(1800000)
+    ds.setQueryTimeout(60000)
     ds.setMaxWait(60000)
     val jdbcTemplate = new JdbcTemplate(ds)
     item.name -> jdbcTemplate
