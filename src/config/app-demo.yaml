@@ -8,6 +8,21 @@ sys:
   dataKeepHours: 24
 
 monitor:
+  - name: email
+    matches:
+      heartbeatLostOver: 5
+      syncBlockedOver: 100
+      syncErrorOver: 10
+      syncPendingOver: 1000
+    action: email
+    params:
+      host: xxxx
+      port: 1234
+      user: xxx
+      password: xxx
+      from: xxx
+      to: xxx
+      subject: xxx
   - name: xxx
     matches:
       heartbeatLostOver: 5
@@ -17,6 +32,10 @@ monitor:
     action: webhook
     params:
       url: http://x.x.x.x:xxxx/path
+  - name: restart
+    matches:
+      heartbeatLostOver: 10
+    action: restart
 
 db:
   - name: db1
