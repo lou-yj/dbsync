@@ -36,12 +36,15 @@ class MysqlOperation extends DbOperation {
     """
     val rowMapper = BeanPropertyRowMapper.newInstance(classOf[SyncDataModel])
     val result = jdbcTemplate.query(sql, rowMapper).asScala.toList
-    val args = for (item <- result) yield Array[Object](item.id.asInstanceOf[Object])
+    result
+  }
+
+  override def pollAck(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, ids: List[Long]): Unit = {
+    val args = ids.map(v => Array[Object](v.asInstanceOf[Object]))
     jdbcTemplate.batchUpdate(
       s"""
         insert into ${dbConfig.sysSchema}.sync_polled (`dataId`) values (?)
       """, args.asJava)
-    result
   }
 
   override def prepareBatchUpsert(syncData: SyncData): (String, Array[AnyRef]) = {

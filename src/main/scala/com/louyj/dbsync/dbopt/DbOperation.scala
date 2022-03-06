@@ -18,6 +18,8 @@ trait DbOperation {
 
   def pollBatch(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, batch: Int): List[SyncDataModel]
 
+  def pollAck(jdbcTemplate: JdbcTemplate, dbConfig: DatabaseConfig, ids: List[Long]): Unit
+
   def prepareBatchUpsert(syncData: SyncData): (String, Array[AnyRef])
 
   def prepareBatchDelete(syncData: SyncData): (String, Array[AnyRef])
