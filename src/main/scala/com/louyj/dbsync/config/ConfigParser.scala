@@ -62,8 +62,6 @@ class ConfigParser(stream: InputStream) {
     if (isBlank(dbConfig.password)) throw new RuntimeException("db config error, missing password")
     if (isBlank(dbConfig.sysSchema)) throw new RuntimeException("db config error, missing sysSchema")
     if (dbConfig.maxPoolSize == 0) dbConfig.maxPoolSize = 15
-    if (dbConfig.queryTimeout == 0) dbConfig.queryTimeout = 1800000
-    if (dbConfig.maxWaitTime == 0) dbConfig.maxWaitTime = 60000
     dbConfig
   }
 
