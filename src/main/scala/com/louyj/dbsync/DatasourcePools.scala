@@ -34,7 +34,7 @@ class DatasourcePools(databaseConfigs: List[DatabaseConfig]) {
     ds.setUsername(item.user)
     ds.setPassword(item.password)
     ds.setMaxActive(item.maxPoolSize)
-    ds.setName(item.name + "_slow")
+    ds.setName(item.name + "_sys")
     ds.setQueryTimeout(item.sysQueryTimeout)
     ds.setMaxWait(item.maxWaitTime * 1000)
     val jdbcTemplate = new JdbcTemplate(ds)
