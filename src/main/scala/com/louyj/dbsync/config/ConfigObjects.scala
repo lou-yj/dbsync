@@ -19,7 +19,9 @@ case class DatabaseConfig(name: String, sysSchema: String, `type`: String,
                           driver: String, url: String,
                           user: String, password: String,
                           var maxPoolSize: Int = 15,
-                          var createIndex: Boolean = true)
+                          var createIndex: Boolean = true,
+                          var queryTimeout: Int = 1800000,
+                          var maxWaitTime: Long = 60000)
 
 
 case class SyncConfig(sourceDb: String, targetDb: String,
