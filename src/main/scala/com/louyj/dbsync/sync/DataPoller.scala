@@ -47,21 +47,13 @@ class DataPoller(dbConfig: DatabaseConfig,
       heartbeat
       try {
         val models = dbOpt.pollBatch(jdbc, dbConfig, batchSize)
-        val ackIds = new ListBuffer[Long]()
         if (models.nonEmpty) {
           val dataTable: HashBasedTable[String, Int, ListBuffer[SyncData]] = HashBasedTable.create()
           models.foreach(pushModel(_, dataTable))
           dataTable.cellSet().forEach(c => {
             val batch = BatchData(dbConfig.name, c.getRowKey, c.getColumnKey, c.getValue)
-            val success = queueManager.put(c.getColumnKey, batch)
-            if (success) {
-              ackIds += c.getValue.map(v => v.id)
-            } else {
-              val failedIds = c.getValue.map(v => v.id)
-              logger.warn(s"Poll and offer timeout, database ${dbConfig.name}, partition ${c.getColumnKey}, ids $failedIds")
-            }
+            queueManager.put(c.getColumnKey, batch)
           })
-          dbOpt.pollAck(jdbc, dbConfig, ackIds.toList)
           startTime = models.head.createTime
           endTime = models.last.createTime
           val startTimeStr = new DateTime(startTime.getTime).toString("yyyy-MM-dd HH:mm:ss")
@@ -69,7 +61,7 @@ class DataPoller(dbConfig: DatabaseConfig,
           logger.info(s"Poll ${models.size} data between $startTimeStr and $endTimeStr, current offset ${models.last.id}")
           incr(models.size)
         }
-        val percent = (batchSize - ackIds.size) * 1.0 / batchSize
+        val percent = (batchSize - models.size) * 1.0 / batchSize
         val waitTime = (percent * maxPollWait).longValue()
         if (waitTime > 0) {
           logger.debug(s"No enough data, wait $waitTime ms")

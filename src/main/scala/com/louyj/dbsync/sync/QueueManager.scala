@@ -24,7 +24,7 @@ class QueueManager(state: StateManger, ctx: SystemContext) {
 
   def queue(partition: Int) = queues(partition)
 
-  def put(partition: Int, data: BatchData): Boolean = queue(partition).offer(data, 1, TimeUnit.SECONDS)
+  def put(partition: Int, data: BatchData) = queue(partition).put(data)
 
   def take(partition: Int): BatchData = {
     queue(partition).synchronized {
