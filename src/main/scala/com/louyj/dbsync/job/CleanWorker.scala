@@ -49,5 +49,5 @@ class CleanWorker(ctx: SystemContext)
     }
   }
 
-  override def heartbeatInterval(): Long = 5
+  override def heartbeatInterval(): Long = 5000
 }
