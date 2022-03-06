@@ -40,7 +40,7 @@ class CleanWorker(ctx: SystemContext)
   def cleanFun = (dbConfig: DatabaseConfig) => {
     try {
       logger.info(s"Start clean system tables for ${dbConfig.name}")
-      val jdbcTemplate = ctx.dsPools.jdbcTemplate(dbConfig.name)
+      val jdbcTemplate = ctx.dsPools.sysJdbcTemplate(dbConfig.name)
       val dbOpt = DbOperationRegister.dbOpts(dbConfig.`type`)
       val count = dbOpt.cleanSysTable(jdbcTemplate, dbConfig, ctx.sysConfig.dataKeepHours)
       logger.info(s"Finish clean system tables for ${dbConfig.name}, cleaned $count datas")

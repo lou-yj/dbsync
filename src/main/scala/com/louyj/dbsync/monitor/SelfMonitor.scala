@@ -51,7 +51,7 @@ class SelfMonitor(componentManager: ComponentManager, ctx: SystemContext)
     }
     ctx.componentStatus = ctxStatus
     val syncState = ctx.dbConfigs.map(dbConfig => {
-      val jdbc = ctx.dsPools.jdbcTemplate(dbConfig.name)
+      val jdbc = ctx.dsPools.sysJdbcTemplate(dbConfig.name)
       val dbOpt = dbOpts(dbConfig.`type`)
       dbOpt.syncState(dbConfig, jdbc)
     })

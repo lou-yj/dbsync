@@ -21,6 +21,7 @@ case class DatabaseConfig(name: String, sysSchema: String, `type`: String,
                           var maxPoolSize: Int = 15,
                           var createIndex: Boolean = true,
                           var queryTimeout: Int = 10,
+                          var sysQueryTimeout: Int = 1800,
                           var maxWaitTime: Long = 60)
 
 

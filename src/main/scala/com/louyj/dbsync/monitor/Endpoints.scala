@@ -37,7 +37,7 @@ class Endpoints(val app: Javalin,
 
   app.get("/status/sync", ctx => {
     val result = sysctx.dbConfigs.map(dbConfig => {
-      val jdbc = sysctx.dsPools.jdbcTemplate(dbConfig.name)
+      val jdbc = sysctx.dsPools.sysJdbcTemplate(dbConfig.name)
       val dbOpt = dbOpts(dbConfig.`type`)
       dbOpt.syncState(dbConfig, jdbc)
     }).sortBy(_.name)

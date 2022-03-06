@@ -72,7 +72,7 @@ trait TriggerSync {
     logger.info(s"Start clean trigger for ${dbConfig.name}")
     val syncSet = syncConfigs.filter(_.sourceDb == dbConfig.name).map(sync => s"${sync.sourceSchema}:${sync.sourceTable}").toSet
     val dbOpt = dbOpts(dbConfig.`type`)
-    val jdbc = dsPools.jdbcTemplate(dbConfig.name)
+    val jdbc = dsPools.sysJdbcTemplate(dbConfig.name)
     dbOpt.listTriggers(dbConfig, jdbc).foreach(st => {
       val key = s"${st.schema}:${st.table}"
       if (!syncSet.contains(key)) {
@@ -88,7 +88,7 @@ trait TriggerSync {
                   dsPools: DatasourcePools, syncConfig: SyncConfig) = {
     val srcDbName = syncConfig.sourceDb
     val srcDbOpt = dbOpts(srcDbConfig.`type`)
-    val srcJdbc = dsPools.jdbcTemplate(srcDbName)
+    val srcJdbc = dsPools.sysJdbcTemplate(srcDbName)
     val exists = srcDbOpt.tableExists(srcJdbc, syncConfig.sourceSchema, syncConfig.sourceTable)
     if (exists) {
       srcDbOpt.buildInsertTrigger(srcDbConfig, srcJdbc, syncConfig)
@@ -104,7 +104,7 @@ trait TriggerSync {
   private def checkIndex(tarDbConfig: DatabaseConfig, syncConfig: SyncConfig, dsPools: DatasourcePools) = {
     val tarDbName = tarDbConfig.name
     val tarDbOpt = dbOpts(tarDbConfig.`type`)
-    val tarJdbc = dsPools.jdbcTemplate(tarDbName)
+    val tarJdbc = dsPools.sysJdbcTemplate(tarDbName)
     val check: PartialFunction[Boolean, Unit] = {
       case true =>
         val indexColumns = syncConfig.sourceKeys.split(",").sorted.mkString(",")

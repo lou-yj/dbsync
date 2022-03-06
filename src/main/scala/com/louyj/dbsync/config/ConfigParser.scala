@@ -63,6 +63,7 @@ class ConfigParser(stream: InputStream) {
     if (isBlank(dbConfig.sysSchema)) throw new RuntimeException("db config error, missing sysSchema")
     if (dbConfig.maxPoolSize == 0) dbConfig.maxPoolSize = 15
     if (dbConfig.queryTimeout == 0) dbConfig.queryTimeout = 10
+    if (dbConfig.sysQueryTimeout == 0) dbConfig.sysQueryTimeout = 1800
     if (dbConfig.maxWaitTime == 0) dbConfig.maxWaitTime = 60
     dbConfig
   }
